@@ -233,6 +233,11 @@ char init_stm32() {
 	while(stm.dev->id != 0x00 && stm.dev->id != stm.pid)
 		++stm.dev;
 
+	if (stm.dev->id == 0x00) {
+		fprintf(stderr, "Unknown Device ID 0x%02x\n", stm.pid);
+		return 0;
+	}
+
 	printf("Version  : %02x\n", stm.bl_version);
 	printf("Option 1 : %02x\n", stm.option1);
 	printf("Option 2 : %02x\n", stm.option2);
