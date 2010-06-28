@@ -37,7 +37,7 @@ typedef struct {
 	uint32_t	fl_start, fl_end;
 	uint16_t	fl_pps; // pages per sector
 	uint16_t	fl_ps;  // page size
-	uint32_t	option_start, option_end;
+	uint32_t	opt_start, opt_end;
 	uint32_t	mem_start, mem_end;
 } stm32_dev_t;
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
 	tcgetattr(fd, &newtio);
 
 	newtio.c_cflag &= ~(CBAUD | CSIZE | PARODD | CSTOPB | CSIZE | CRTSCTS);
-	newtio.c_cflag |= B9600 | CS8 | CREAD | PARENB;
+	newtio.c_cflag |= B57600 | CS8 | CREAD | PARENB;
 	newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
 	newtio.c_iflag |= (INPCK | ISTRIP);
 	newtio.c_oflag &= ~OPOST;
@@ -126,11 +126,11 @@ int main(int argc, char* argv[]) {
 	unsigned int cmp;
 	uint8_t buffer[256];
 	memset(buffer, 0, sizeof(buffer));
-	if (!write_memory(stm.dev->ram_start, buffer, sizeof(buffer)))
+	if (!write_memory(stm.dev->fl_start, buffer, sizeof(buffer)))
 		fprintf(stderr, "Failed to write memory\n");
 
 	memset(buffer, 0xff, sizeof(buffer));
-	if (!read_memory(stm.dev->ram_start, buffer, sizeof(buffer)))
+	if (!read_memory(stm.dev->fl_start, buffer, sizeof(buffer)))
 		fprintf(stderr, "Failed to read memory\n");
 
 	for(cmp = 0; cmp < sizeof(buffer); ++cmp)
@@ -249,10 +249,14 @@ char init_stm32() {
 		return 0;
 	}
 
-	printf("Version  : 0x%02x\n", stm.bl_version);
-	printf("Option 1 : 0x%02x\n", stm.option1);
-	printf("Option 2 : 0x%02x\n", stm.option2);
-	printf("Device ID: 0x%04x (%s)\n", stm.pid, stm.dev->name);
+	printf("Version   : 0x%02x\n", stm.bl_version);
+	printf("Option 1  : 0x%02x\n", stm.option1);
+	printf("Option 2  : 0x%02x\n", stm.option2);
+	printf("Device ID : 0x%04x (%s)\n", stm.pid, stm.dev->name);
+	printf("RAM       : %dKiB  (%db reserved by bootloader)\n", (stm.dev->ram_end - 0x20000000) / 1024, stm.dev->ram_start - 0x20000000);
+	printf("Flash     : %dKiB (sector size: %dx%d)\n", (stm.dev->fl_end - stm.dev->fl_start ) / 1024, stm.dev->fl_pps, stm.dev->fl_ps);
+	printf("Option RAM: %db\n", stm.dev->opt_end - stm.dev->opt_start);
+	printf("System RAM: %dKiB\n", (stm.dev->mem_end - stm.dev->mem_start) / 1024);
 	return 1;
 }
 
