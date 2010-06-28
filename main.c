@@ -31,6 +31,27 @@ These are not used as we use the values the bootloader returns instead
 #endif
 
 typedef struct {
+	uint16_t	id;
+	char		*name;
+	uint32_t	ram_start, ram_end;
+	uint32_t	fl_start, fl_end;
+	uint16_t	fl_pps; // pages per sector
+	uint16_t	fl_ps;  // page size
+	uint32_t	option_start, option_end;
+	uint32_t	mem_start, mem_end;
+} stm32_dev_t;
+
+const stm32_dev_t devices[] = {
+	{0x412, "Low-density"      , 0x20000200, 0x20002800, 0x08000000, 0x08008000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
+	{0x410, "Medium-density"   , 0x20000200, 0x20005000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
+	{0x414, "High-density"     , 0x20000200, 0x20010000, 0x08000000, 0x08080000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
+	{0x418, "Connectivity line", 0x20000200, 0x20010000, 0x08000000, 0x08040000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFB000, 0x1FFFF800},
+	{0x420, "Medium-density VL", 0x20000200, 0x20002000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
+	{0x430, "XL-density"       , 0x20000800, 0x20018000, 0x08000000, 0x08100000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFE000, 0x1FFFF800},
+	{0x000}
+};
+
+typedef struct {
 	uint8_t		get;
 	uint8_t		gvr;
 	uint8_t		gid;
@@ -46,13 +67,13 @@ typedef struct {
 } stm32_cmd_t;
 
 typedef struct {
-	uint8_t		bl_version;
-	uint8_t		version;
-	uint8_t		option1, option2;
-	uint16_t	pid;
-	stm32_cmd_t	cmd;
+	uint8_t			bl_version;
+	uint8_t			version;
+	uint8_t			option1, option2;
+	uint16_t		pid;
+	stm32_cmd_t		cmd;
+	const stm32_dev_t	*dev;
 } stm32_t;
-
 
 int	fd;
 stm32_t	stm;
@@ -112,7 +133,7 @@ int main(int argc, char* argv[]) {
 	if (!init_stm32()) goto close;
 
 	uint8_t buffer[256];
-	if (!read_memory(0, buffer, (uint8_t)sizeof(buffer)))
+	if (!read_memory(stm.dev->ram_start, buffer, (uint8_t)sizeof(buffer)))
 		fprintf(stderr, "Failed to read memory\n");
 	
 
@@ -208,10 +229,14 @@ char init_stm32() {
 	stm.pid = (read_byte() << 8) | read_byte();
 	if (read_byte() != STM32_ACK) return 0;
 
+	stm.dev = devices;
+	while(stm.dev->id != 0x00 && stm.dev->id != stm.pid)
+		++stm.dev;
+
 	printf("Version  : %02x\n", stm.bl_version);
 	printf("Option 1 : %02x\n", stm.option1);
 	printf("Option 2 : %02x\n", stm.option2);
-	printf("Device ID: %04x\n", stm.pid);
+	printf("Device ID: %04x (%s)\n", stm.pid, stm.dev->name);
 	return 1;
 }
 
