@@ -86,17 +86,8 @@ char*    read_str();
 char     send_command(uint8_t cmd);
 char     init_stm32();
 void     free_stm32();
-char     read_memory (uint32_t address, uint8_t data[], uint8_t len);
-char     write_memory(uint32_t address, uint8_t data[], uint8_t len);
-
-inline uint32_t swap_u32(const uint32_t v) {
-	if (le)
-		return	((v & 0xFF000000) >> 24) |
-			((v & 0x00FF0000) >>  8) |
-			((v & 0x0000FF00) <<  8) |
-			((v & 0x000000FF) << 24);
-	return v;
-}
+char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
+char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
 
 int main(int argc, char* argv[]) {
 	struct termios	oldtio, newtio;
@@ -132,16 +123,36 @@ int main(int argc, char* argv[]) {
 	tcsetattr(fd, TCSANOW, &newtio);
 	if (!init_stm32()) goto close;
 
+	unsigned int cmp;
 	uint8_t buffer[256];
-	if (!read_memory(stm.dev->ram_start, buffer, (uint8_t)sizeof(buffer)))
+	memset(buffer, 0, sizeof(buffer));
+	if (!write_memory(stm.dev->ram_start, buffer, sizeof(buffer)))
+		fprintf(stderr, "Failed to write memory\n");
+
+	memset(buffer, 0xff, sizeof(buffer));
+	if (!read_memory(stm.dev->ram_start, buffer, sizeof(buffer)))
 		fprintf(stderr, "Failed to read memory\n");
-	
+
+	for(cmp = 0; cmp < sizeof(buffer); ++cmp)
+		if (buffer[cmp] != 0x00) {
+			fprintf(stderr, "Failed to verify\n");
+			break;
+		}
 
 close:
 	free_stm32();
 	tcsetattr(fd, TCSANOW, &oldtio);
 	close(fd);
 	return 0;
+}
+
+inline uint32_t swap_u32(const uint32_t v) {
+	if (le)
+		return	((v & 0xFF000000) >> 24) |
+			((v & 0x00FF0000) >>  8) |
+			((v & 0x0000FF00) <<  8) |
+			((v & 0x000000FF) << 24);
+	return v;
 }
 
 void send_byte(const uint8_t byte) {
@@ -238,10 +249,10 @@ char init_stm32() {
 		return 0;
 	}
 
-	printf("Version  : %02x\n", stm.bl_version);
-	printf("Option 1 : %02x\n", stm.option1);
-	printf("Option 2 : %02x\n", stm.option2);
-	printf("Device ID: %04x (%s)\n", stm.pid, stm.dev->name);
+	printf("Version  : 0x%02x\n", stm.bl_version);
+	printf("Option 1 : 0x%02x\n", stm.option1);
+	printf("Option 2 : 0x%02x\n", stm.option2);
+	printf("Device ID: 0x%04x (%s)\n", stm.pid, stm.dev->name);
 	return 1;
 }
 
@@ -249,9 +260,10 @@ void free_stm32() {
 
 }
 
-char read_memory(uint32_t address, uint8_t data[], uint8_t len) {
+char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	uint8_t cs;
-	uint8_t i;
+	unsigned int i;
+	assert(len > 0 && len <= 256);
 
 	/* must be 32bit aligned */
 	assert(address % 4 == 0);
@@ -272,15 +284,18 @@ char read_memory(uint32_t address, uint8_t data[], uint8_t len) {
 	send_byte(0xFF - i);
 	if (read_byte() != STM32_ACK) return 0;
 
-	while(len-- > 0)
-		*data++ = read_byte();
+	while(len-- > 0) {
+		*data = read_byte();
+		++data;
+	}
 
 	return 1;
 }
 
-char write_memory(uint32_t address, uint8_t data[], uint8_t len) {
+char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	uint8_t cs;
-	uint8_t i;
+	unsigned int i;
+	assert(len > 0 && len <= 256);
 
 	/* must be 32bit aligned */
 	assert(address % 4 == 0);
@@ -309,13 +324,14 @@ char write_memory(uint32_t address, uint8_t data[], uint8_t len) {
 	}
 
 	/* write the alignment padding */
-	for(i = len % 4; i >= 0; --i) {
-		send_byte(0xFF);
-		cs ^= 0xFF;
+	if ((i = len % 4) > 0) {
+		for(; i >= 0; --i) {
+			send_byte(0xFF);
+			cs ^= 0xFF;
+		}
 	}
 
 	/* send the checksum */
 	send_byte(cs);
-
-	return 1;
+	return read_byte() == STM32_ACK;
 }
