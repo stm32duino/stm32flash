@@ -59,7 +59,7 @@ stm32_t	stm;
 char    le; //true if cpu is little-endian
 
 uint32_t swap_u32(const uint32_t v);
-void     send_byte(char byte);
+void     send_byte(const uint8_t byte);
 char     read_byte();
 char*    read_str();
 char     send_command(uint8_t cmd);
@@ -89,19 +89,24 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	fd = open(argv[1], O_RDWR | O_NOCTTY);
+	fd = open(argv[1], O_RDWR | O_NOCTTY | O_NDELAY);
 	if (fd < 0) {
 		perror(argv[0]);
 		return 1;
 	}
+	fcntl(fd, F_SETFL, 0);
 
-	tcgetattr(fd,&oldtio);
-	bzero(&newtio, sizeof(newtio));
+	tcgetattr(fd, &oldtio);
+	tcgetattr(fd, &newtio);
 
-	newtio.c_cflag = B115200 | CS8 | CREAD;
-	newtio.c_iflag = IGNPAR;
-	newtio.c_oflag = 0;
-	newtio.c_lflag = 0;
+	newtio.c_cflag &= ~(CBAUD | CSIZE | PARODD | CSTOPB | CSIZE | CRTSCTS);
+	newtio.c_cflag |= B9600 | CS8 | CREAD | PARENB;
+	newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	newtio.c_iflag |= (INPCK | ISTRIP);
+	newtio.c_oflag &= ~OPOST;
+	newtio.c_cc[VMIN ] = 0;
+	newtio.c_cc[VTIME] = 10;
+
 	tcflush  (fd, TCIFLUSH);
 	tcsetattr(fd, TCSANOW, &newtio);
 	if (!init_stm32()) goto close;
@@ -118,7 +123,7 @@ close:
 	return 0;
 }
 
-void send_byte(char byte) {
+void send_byte(const uint8_t byte) {
 	assert(write(fd, &byte, 1) == 1);
 }
 
@@ -143,11 +148,11 @@ char send_command(uint8_t cmd) {
 	uint8_t cs;
 
 	cs = 0xff - cmd;
-	write(fd, &cmd, 1);
-	write(fd, &cs , 1);
-	read (fd, &ret, 1);
+	send_byte(cmd);
+	send_byte(cs );
+	ret = read_byte();
 	if (ret != STM32_ACK) {
-		fprintf(stderr, "Error sending command 0x%02x to device, returned 0x%02x\n", cmd, ret);
+		fprintf(stderr, "Error sending command 0x%02x (cs: 0x%02x) to device, returned 0x%02x\n", cmd, cs, ret);
 		return 0;
 	}
 
@@ -203,6 +208,10 @@ char init_stm32() {
 	stm.pid = (read_byte() << 8) | read_byte();
 	if (read_byte() != STM32_ACK) return 0;
 
+	printf("Version  : %02x\n", stm.bl_version);
+	printf("Option 1 : %02x\n", stm.option1);
+	printf("Option 2 : %02x\n", stm.option2);
+	printf("Device ID: %04x\n", stm.pid);
 	return 1;
 }
 
