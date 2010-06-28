@@ -78,7 +78,6 @@ typedef struct {
 int		fd;
 stm32_t		stm;
 char		le; //true if cpu is little-endian
-struct termios	oldtio, newtio;
 
 uint32_t swap_u32(const uint32_t v);
 void     send_byte(const uint8_t byte);
@@ -87,10 +86,12 @@ char*    read_str();
 char     send_command(uint8_t cmd);
 char     init_stm32();
 void     free_stm32();
+char     erase_memory();
 char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
 char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
 
 int main(int argc, char* argv[]) {
+	struct termios oldtio, newtio;
 	int i;
 
 	/* detect CPU endian */
@@ -218,13 +219,29 @@ int main(int argc, char* argv[]) {
 	tcgetattr(fd, &oldtio);
 	tcgetattr(fd, &newtio);
 
-	newtio.c_cflag &= ~(CBAUD | CSIZE | PARODD | CSTOPB | CSIZE | CRTSCTS);
-	newtio.c_cflag |= baudRate | CS8 | CREAD | PARENB;
-	newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	newtio.c_cflag &= ~CSIZE;
+	newtio.c_cflag &= ~PARODD;
+	newtio.c_cflag &= ~CSTOPB;
+	newtio.c_cflag &= ~CRTSCTS;
+	newtio.c_cflag |= CREAD | CS8 | PARENB;
+
+	newtio.c_lflag &= ~ISIG;
+	newtio.c_lflag &= ~ICANON;
+	newtio.c_lflag &= ~ECHO;
+	newtio.c_lflag &= ~ECHOE;
+	
+	newtio.c_iflag &= ~IXON;
+	newtio.c_iflag &= ~IXOFF;
+	newtio.c_iflag &= ~IXANY;
 	newtio.c_iflag |= (INPCK | ISTRIP);
+
 	newtio.c_oflag &= ~OPOST;
+
 	newtio.c_cc[VMIN ] = 0;
 	newtio.c_cc[VTIME] = 10;
+
+	cfsetispeed(&newtio, baudRate);
+	cfsetospeed(&newtio, baudRate);
 
 	tcflush  (fd, TCIFLUSH);
 	tcsetattr(fd, TCSANOW, &newtio);
@@ -285,6 +302,11 @@ int main(int argc, char* argv[]) {
 		assert(stat(filename, &st) == 0);
 		if (st.st_size > stm.dev->fl_end - stm.dev->fl_start) {
 			fprintf(stderr, "File provided larger then available flash space.\n");
+			goto close;
+		}
+
+		if (!erase_memory()) {
+			fprintf(stderr, "Failed to erase flash memory.\n");
 			goto close;
 		}
 
@@ -464,6 +486,12 @@ char init_stm32() {
 
 void free_stm32() {
 
+}
+
+char erase_memory() {
+	if (!send_command(stm.cmd.er)) return 0;
+	if (!send_command(0xFF      )) return 0;
+	return 1;
 }
 
 char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
