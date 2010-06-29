@@ -107,6 +107,7 @@ int main(int argc, char* argv[]) {
 	int		retry		= 10;
 	char		*filename;
 
+	printf("\n");
 	for(i = 1; i < argc; ++i) {
 		if (argv[i][0] == '-') {
 			switch(argv[i][1]) {
@@ -172,7 +173,6 @@ int main(int argc, char* argv[]) {
 
 				case 'h':
 					fprintf(stderr,
-						"\n"
 						"stm32flash - http://stm32flash.googlecode.com/\n"
 						"usage: %s [-brwv] /dev/ttyS0\n"
 						"	-b rate		Baud rate (default 57600)\n"
@@ -230,6 +230,7 @@ int main(int argc, char* argv[]) {
 	tcsetattr(fd, TCSANOW, &newtio);
 	if (!init_stm32()) goto close;
 
+	printf("stm32flash - http://stm32flash.googlecode.com/\n");
 	printf("Version   : 0x%02x\n", stm.bl_version);
 	printf("Option 1  : 0x%02x\n", stm.option1);
 	printf("Option 2  : 0x%02x\n", stm.option2);
@@ -335,7 +336,8 @@ int main(int argc, char* argv[]) {
 			offset	+= len;
 
 			fprintf(stdout,
-				"\x1B[uWrote address 0x%08x (%.2f%%) ",
+				"\x1B[uWrote %saddress 0x%08x (%.2f%%) ",
+				verify ? "and verified " : "",
 				addr,
 				(100.0f / st.st_size) * offset
 			);
@@ -355,6 +357,7 @@ close:
 
 	if (rd) close(rd);
 	if (wr) close(wr);
+	printf("\n");
 	return ret;
 }
 
