@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 	char *device = NULL;
 
 	int		ret		= 1;
-	unsigned int	baudRate	= B57600;
+	speed_t		baudRate	= B57600;
 	int		rd	 	= 0;
 	int		wr		= 0;
 	char		verify		= 0;
@@ -219,27 +219,10 @@ int main(int argc, char* argv[]) {
 	tcgetattr(fd, &oldtio);
 	tcgetattr(fd, &newtio);
 
-	newtio.c_cflag &= ~CSIZE;
-	newtio.c_cflag &= ~PARODD;
-	newtio.c_cflag &= ~CSTOPB;
-	newtio.c_cflag &= ~CRTSCTS;
-	newtio.c_cflag |= CREAD | CS8 | PARENB;
-
-	newtio.c_lflag &= ~ISIG;
-	newtio.c_lflag &= ~ICANON;
-	newtio.c_lflag &= ~ECHO;
-	newtio.c_lflag &= ~ECHOE;
-	
-	newtio.c_iflag &= ~IXON;
-	newtio.c_iflag &= ~IXOFF;
-	newtio.c_iflag &= ~IXANY;
-	newtio.c_iflag |= (INPCK | ISTRIP);
-
-	newtio.c_oflag &= ~OPOST;
-
+	cfmakeraw(&newtio);
+	newtio.c_cflag |= PARENB;
 	newtio.c_cc[VMIN ] = 0;
-	newtio.c_cc[VTIME] = 10;
-
+	newtio.c_cc[VTIME] = 20;
 	cfsetispeed(&newtio, baudRate);
 	cfsetospeed(&newtio, baudRate);
 
@@ -305,11 +288,6 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		if (!erase_memory()) {
-			fprintf(stderr, "Failed to erase flash memory.\n");
-			goto close;
-		}
-
 		addr = stm.dev->fl_start;
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
@@ -337,9 +315,13 @@ int main(int argc, char* argv[]) {
 				}
 
 				for(r = 0; r < len; ++r)
-					if (compare[r] != buffer[r]) {
+					if (buffer[r] != compare[r]) {
 						if (failed == retry) {
-							fprintf(stderr, "Failed to verify at address 0x%08x\n", (uint32_t)(addr + r));
+							fprintf(stderr, "Failed to verify at address 0x%08x, expected 0x%02x and found 0x%02x\n",
+								(uint32_t)(addr + r),
+								buffer [r],
+								compare[r]
+							);
 							goto close;
 						}
 						++failed;
@@ -514,9 +496,10 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	if (read_byte() != STM32_ACK) return 0;
 
 	while(len > 0) {
-		assert((r = read(fd, data, len)) > 0);
+		r        = read(fd, data, len);
 		len	-= r;
 		data	+= r;
+		assert(r > 0);
 	}
 
 	return 1;
@@ -525,6 +508,7 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	uint8_t cs;
 	unsigned int i;
+	int c, extra;
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -543,22 +527,20 @@ char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	if (read_byte() != STM32_ACK) return 0;
 
 	/* setup the cs and send the length */
-	cs = len - 1 + (len % 4);
+	extra = len % 4;
+	cs = len - 1 + extra;
 	send_byte(cs);
 
 	/* write the data and build the checksum */
-	for(i = 0; i < len; ++i) {
-		send_byte(*data);
-		cs ^= *data;
-		++data;
-	}
+	for(i = 0; i < len; ++i)
+		cs ^= data[i];
+
+	assert(write(fd, data, len) == len);
 
 	/* write the alignment padding */
-	if ((i = len % 4) > 0) {
-		for(; i >= 0; --i) {
-			send_byte(0xFF);
-			cs ^= 0xFF;
-		}
+	for(c = 0; c < extra; ++c) {
+		send_byte(0xFF);
+		cs ^= 0xFF;
 	}
 
 	/* send the checksum */
