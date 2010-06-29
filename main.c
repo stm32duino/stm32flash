@@ -406,18 +406,12 @@ char *read_str() {
 }
 
 char send_command(uint8_t cmd) {
-	char ret;
-	uint8_t cs;
-
-	cs = 0xff - cmd;
 	send_byte(cmd);
-	send_byte(cs );
-	ret = read_byte();
-	if (ret != STM32_ACK) {
-		fprintf(stderr, "Error sending command 0x%02x (cs: 0x%02x) to device, returned 0x%02x\n", cmd, cs, ret);
+	send_byte(cmd ^ 0xFF);
+	if (read_byte() != STM32_ACK) {
+		fprintf(stderr, "Error sending command 0x%02x to device\n", cmd);
 		return 0;
 	}
-
 	return 1;
 }
 
@@ -516,7 +510,7 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 
 	i = len - 1;
 	send_byte(i);
-	send_byte(0xFF - i);
+	send_byte(i ^ 0xFF);
 	if (read_byte() != STM32_ACK) return 0;
 
 	while(len > 0) {
