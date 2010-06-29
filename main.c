@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
 				/* baud rate */
 				case 'b':
 					if (i == argc - 1) {
-						fprintf(stderr, "Baud rate not specified\n");
+						fprintf(stderr, "Baud rate not specified\n\n");
 						return 1;
 					}
 					switch(atoi(argv[++i])) {
@@ -149,11 +149,11 @@ int main(int argc, char* argv[]) {
 					rd = rd || argv[i][1] == 'r';
 					wr = wr || argv[i][1] == 'w';
 					if (rd && wr) {
-						fprintf(stderr, "Invalid options, can't read & write at the same time\n");
+						fprintf(stderr, "Invalid options, can't read & write at the same time\n\n");
 						return 1;
 					}
 					if (i == argc - 1) {
-						fprintf(stderr, "Filename not specified\n");
+						fprintf(stderr, "Filename not specified\n\n");
 						return 1;
 					}
 					filename = argv[++i];				
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
 
 				case 'n':
 					if (i == argc - 1) {
-						fprintf(stderr, "Retry not specified\n");
+						fprintf(stderr, "Retry not specified\n\n");
 						return 1;
 					}
 					retry = atoi(argv[++i]);
@@ -174,12 +174,12 @@ int main(int argc, char* argv[]) {
 				case 'h':
 					fprintf(stderr,
 						"stm32flash - http://stm32flash.googlecode.com/\n"
-						"usage: %s [-brwv] /dev/ttyS0\n"
+						"usage: %s [-brwvnh] /dev/ttyS0\n"
 						"	-b rate		Baud rate (default 57600)\n"
 						"	-r filename	Read flash to file\n"
 						"	-w filename	Write flash to file\n"
-						"	-v		Verify flash against file\n"
-						"	-n N		Retry failed write N times (default 10)\n"
+						"	-v		Verify writes\n"
+						"	-n N		Retry failed writes up to N times (default 10)\n"
 						"	-h		Show this help\n"
 						"\n",
 						argv[0]
@@ -197,7 +197,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (!device || (!rd && !wr)) {
-		fprintf(stderr, "Invalid usage, -h for help\n");
+		fprintf(stderr, "Invalid usage, -h for help\n\n");
+		return 1;
+	}
+
+	if (rd && verify) {
+		fprintf(stderr, "Invalid usage, -v is only valid when writing\n\n");
 		return 1;
 	}
 
