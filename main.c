@@ -169,10 +169,11 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	if (!init_stm32()) goto close;
-
 	printf("stm32flash - http://stm32flash.googlecode.com/\n");
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
+
+	if (!init_stm32()) goto close;
+
 	printf("Version      : 0x%02x\n", stm.bl_version);
 	printf("Option 1     : 0x%02x\n", stm.option1);
 	printf("Option 2     : 0x%02x\n", stm.option2);
