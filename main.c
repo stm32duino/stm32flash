@@ -233,7 +233,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:vn:h")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:vn:g:h")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));

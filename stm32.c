@@ -269,8 +269,6 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 	serial_write(stm->serial, &address, 4);
 	serial_write(stm->serial, &cs     , 1);
 
-	return
-		stm32_read_byte(stm) == STM32_ACK &&
-		stm32_read_byte(stm) == STM32_ACK;
+	return stm32_read_byte(stm) == STM32_ACK;
 }
 
