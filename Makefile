@@ -1,6 +1,6 @@
 all:
 	$(MAKE) -C parsers
-	gcc -o stm32flash -I./ \
+	gcc -g -o stm32flash -I./ \
 		main.c \
 		utils.c \
 		stm32.c \

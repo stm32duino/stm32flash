@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdint.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -39,7 +38,7 @@ serial_t	*serial;
 stm32_t		*stm;
 
 void		*p_st;
-parser_t	*parser = &PARSER_BINARY;
+parser_t	*parser		= &PARSER_BINARY;
 
 /* settings */
 char		*device		= NULL;
@@ -72,15 +71,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (wr) {
-		wr = open(filename, O_RDONLY);
-		if (wr < 0) {
-			perror(filename);
+		if (parser->open(p_st, filename, 0) != PARSER_ERR_OK)
 			return 1;
-		}
 	}
 
 	serial = serial_open(device);
 	if (!serial) {
+		parser->close(p_st);
 		perror(device);
 		return 1;
 	}
@@ -93,6 +90,7 @@ int main(int argc, char* argv[]) {
 		SERIAL_STOPBIT_1
 	) != SERIAL_ERR_OK) {
 		perror(device);
+		parser->close(p_st);
 		return 1;
 	}
 
@@ -103,10 +101,10 @@ int main(int argc, char* argv[]) {
 	printf("Option 1     : 0x%02x\n", stm->option1);
 	printf("Option 2     : 0x%02x\n", stm->option2);
 	printf("Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
-	printf("RAM       : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
-	printf("Flash     : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
-	printf("Option RAM: %db\n", stm->dev->opt_end - stm->dev->opt_start);
-	printf("System RAM: %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
+	printf("RAM          : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
+	printf("Flash        : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
+	printf("Option RAM   : %db\n", stm->dev->opt_end - stm->dev->opt_start);
+	printf("System RAM   : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 	printf("\n");
 
 
@@ -129,7 +127,7 @@ int main(int argc, char* argv[]) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
 				goto close;
 			}
-			write(rd, buffer, len);
+			assert(parser->write(p_st, buffer, len) == PARSER_ERR_OK);
 			addr += len;
 
 			fprintf(stdout,
@@ -144,11 +142,11 @@ int main(int argc, char* argv[]) {
 		goto close;
 	} else
 	if (wr) {
-		struct	stat st;
 		off_t 	offset = 0;
 		ssize_t r;
-		assert(stat(filename, &st) == 0);
-		if (st.st_size > stm->dev->fl_end - stm->dev->fl_start) {
+		unsigned int size = parser->size(p_st);
+
+		if (size > stm->dev->fl_end - stm->dev->fl_start) {
 			fprintf(stderr, "File provided larger then available flash space.\n");
 			goto close;
 		}
@@ -156,16 +154,14 @@ int main(int argc, char* argv[]) {
 		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
-		while(addr < stm->dev->fl_end && offset < st.st_size) {
+		while(addr < stm->dev->fl_end && offset < size) {
 			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
-			len		= len > st.st_size - offset ? st.st_size - offset : len;
-			r		= read(wr, buffer, len);
-			if (r < len) {
-				perror(filename);
+			len		= len > size - offset ? size - offset : len;
+
+			if (parser->read(p_st, buffer, &len) != PARSER_ERR_OK)
 				goto close;
-			}
-			
+	
 			again:
 			if (!stm32_write_memory(stm, addr, buffer, len)) {
 				fprintf(stderr, "Failed to write memory at address 0x%08x\n", addr);
@@ -203,7 +199,7 @@ int main(int argc, char* argv[]) {
 				"\x1B[uWrote %saddress 0x%08x (%.2f%%) ",
 				verify ? "and verified " : "",
 				addr,
-				(100.0f / st.st_size) * offset
+				(100.0f / size) * offset
 			);
 			fflush(stdout);
 
@@ -227,11 +223,10 @@ close:
 		else	fprintf(stdout, "failed.\n");
 	}
 
+	parser->close(p_st);
 	stm32_close(stm);
 	serial_close(serial);
 
-	if (rd) close(rd);
-	if (wr) close(wr);
 	printf("\n");
 	return ret;
 }

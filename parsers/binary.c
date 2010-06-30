@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 
@@ -41,22 +42,25 @@ unsigned int binary_size(void *storage) {
 	return st->stat.st_size;
 }
 
-parser_err_t binary_read(void *storage, const void *data, unsigned int len) {
+parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 	binary_t *st = storage;
+	unsigned int left = *len;
+
 	if (st->write) return PARSER_ERR_WRONLY;
 
 	ssize_t r;
-	while(len > 0) {
-		r = read(st->fd, data, len);
-		if (r < 1) return PARSER_ERR_SYSTEM;
-		len  -= r;
+	while(left > 0) {
+		r = read(st->fd, data, left);
+		if (r < 0) return PARSER_ERR_SYSTEM;
+		left -= r;
 		data += r;
 	}
 
+	*len = *len - left;
 	return PARSER_ERR_OK;
 }
 
-parser_err_t binary_write(void *storage, const void *data, unsigned int len) {
+parser_err_t binary_write(void *storage, void *data, unsigned int len) {
 	binary_t *st = storage;
 	if (!st->write) return PARSER_ERR_RDONLY;
 
@@ -64,6 +68,8 @@ parser_err_t binary_write(void *storage, const void *data, unsigned int len) {
 	while(len > 0) {
 		r = write(st->fd, data, len);
 		if (r < 1) return PARSER_ERR_SYSTEM;
+		st->stat.st_size += r;
+
 		len  -= r;
 		data += r;
 	}
