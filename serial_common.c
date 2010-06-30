@@ -83,7 +83,7 @@ const unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit) {
 		case SERIAL_STOPBIT_2: return 2;
 
 		default:
-			return ' ';
+			return 0;
 	}
 }
 
