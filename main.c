@@ -311,12 +311,12 @@ int parse_options(int argc, char *argv[]) {
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"Usage: %s [-bvnh] -([rw] filename|-g address)  /dev/ttyS0\n"
+		"Usage: %s [-bvnhg] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
 		"	-v		Verify writes\n"
-		"	-n N		Retry failed writes up to N times (default 10)\n"
+		"	-n count	Retry failed writes up to count times (default 10)\n"
 		"	-g address	Start execution at specified address (0 = flash start)\n"
 		"	-h		Show this help\n"
 		"\n"
