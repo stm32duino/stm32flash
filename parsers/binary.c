@@ -1,7 +1,8 @@
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include "binary.h"
 
@@ -18,7 +19,11 @@ void* binary_init() {
 parser_err_t binary_open(void *storage, const char *filename, const char write) {
 	binary_t *st = storage;
 	if (write) {
-		st->fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
+		st->fd = open(
+			filename,
+			O_WRONLY | O_CREAT | O_TRUNC,
+			S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
+		);
 		st->stat.st_size = 0;
 	} else {
 		if (stat(filename, &st->stat) != 0)
@@ -26,6 +31,7 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 		st->fd = open(filename, O_RDONLY);
 	}
 
+	st->write = write;
 	return st->fd == -1 ? PARSER_ERR_SYSTEM : PARSER_ERR_OK;
 }
 
@@ -45,7 +51,6 @@ unsigned int binary_size(void *storage) {
 parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 	binary_t *st = storage;
 	unsigned int left = *len;
-
 	if (st->write) return PARSER_ERR_WRONLY;
 
 	ssize_t r;

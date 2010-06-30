@@ -52,9 +52,6 @@ serial_t* serial_open(const char *device) {
 	tcgetattr(h->fd, &h->oldtio);
 	tcgetattr(h->fd, &h->newtio);
 
-	h->newtio.c_cc[VMIN ] = 0;
-	h->newtio.c_cc[VTIME] = 20;
-
 	return h;
 }
 
@@ -107,9 +104,9 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 	}
 
 	switch(parity) {
-		case SERIAL_PARITY_NONE: port_parity = 0;               break;
-		case SERIAL_PARITY_EVEN: port_parity = PARENB;          break;
-		case SERIAL_PARITY_ODD : port_parity = PARENB | PARODD; break;
+		case SERIAL_PARITY_NONE: port_parity = 0;                       break;
+		case SERIAL_PARITY_EVEN: port_parity = INPCK | PARENB;          break;
+		case SERIAL_PARITY_ODD : port_parity = INPCK | PARENB | PARODD; break;
 
 		default:
 			return SERIAL_ERR_INVALID_PARITY;
@@ -134,15 +131,23 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 
 	/* reset the settings */
 	cfmakeraw(&h->newtio);
-	h->newtio.c_iflag &= ~(IXON | IXOFF | CRTSCTS);
-	h->newtio.c_cflag &= ~CSIZE;
+	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
+	h->newtio.c_iflag &= ~(IXON | IXOFF | IXANY | IGNPAR);
+	h->newtio.c_lflag &= ~(ECHOK | ECHOCTL | ECHOKE);
+	h->newtio.c_oflag &= ~(OPOST);
 
 	/* setup the new settings */
 	cfsetispeed(&h->newtio, port_baud);
 	cfsetospeed(&h->newtio, port_baud);
-	h->newtio.c_cflag |= port_parity;
-	h->newtio.c_cflag |= port_bits;
-	h->newtio.c_iflag |= port_stop | CREAD;
+	h->newtio.c_cflag |=
+		port_parity	|
+		port_bits	|
+		port_stop	|
+		CLOCAL		|
+		CREAD;
+
+	h->newtio.c_cc[VMIN ] = 0;
+	h->newtio.c_cc[VTIME] = 20;
 
 	/* set the settings */
 	serial_flush(h);
@@ -192,7 +197,8 @@ serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len
 
 	while(len > 0) {
 		r = read(h->fd, pos, len);
-		if (r < 1) return SERIAL_ERR_SYSTEM;
+		      if (r == 0) return SERIAL_ERR_NODATA;
+		else  if (r <  0) return SERIAL_ERR_SYSTEM;
 
 		len -= r;
 		pos += r;

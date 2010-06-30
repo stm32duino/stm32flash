@@ -65,7 +65,8 @@ typedef enum {
 	SERIAL_ERR_INVALID_BAUD,
 	SERIAL_ERR_INVALID_BITS,
 	SERIAL_ERR_INVALID_PARITY,
-	SERIAL_ERR_INVALID_STOPBIT
+	SERIAL_ERR_INVALID_STOPBIT,
+	SERIAL_ERR_NODATA
 } serial_err_t;
 
 serial_t*    serial_open (const char *device);

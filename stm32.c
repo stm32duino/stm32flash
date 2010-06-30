@@ -69,7 +69,7 @@ uint8_t stm32_gen_cs(const uint32_t v) {
 		((v & 0x000000FF) >>  0);
 }
 
-void stm32_send_byte(const stm32_t *stm, uint8_t byte) {
+void stm32_send_byte(const stm32_t *stm, uint8_t byte) {	
 	serial_err_t err;
 	err = serial_write(stm->serial, &byte, 1);
 	if (err != SERIAL_ERR_OK) {
@@ -117,8 +117,8 @@ stm32_t* stm32_init(const serial_t *serial) {
 
 	/* get the bootloader information */
 	if (!stm32_send_command(stm, STM32_CMD_GET)) return 0;
-	len             = stm32_read_byte(stm) + 1;
-	stm->bl_version = stm32_read_byte(stm); --len;
+	len              = stm32_read_byte(stm) + 1;
+	stm->bl_version  = stm32_read_byte(stm); --len;
 	stm->cmd->get    = stm32_read_byte(stm); --len;
 	stm->cmd->gvr    = stm32_read_byte(stm); --len;
 	stm->cmd->gid    = stm32_read_byte(stm); --len;
