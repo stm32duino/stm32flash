@@ -28,80 +28,16 @@
 #include <string.h>
 #include <assert.h>
 
-#define STM32_ACK	0x79
-#define STM32_NACK	0x1F
-#define STM32_CMD_INIT	0x7F
-#define STM32_CMD_GET	0x00	/* get the version and command supported */
+#include "serial.h"
+#include "stm32.h"
 
-#if 0
-These are not used as we use the values the bootloader returns instead
-
-#define STM32_CMD_GVR	0x01	/* get version and read protection status */
-#define STM32_CMD_GID	0x02	/* get the chip ID */
-#define STM32_CMD_RM	0x11	/* read memory */
-#define STM32_CMD_GO	0x21	/* jump to user app code */
-#define STM32_CMD_WM	0x31	/* write memory */
-#define STM32_CMD_ER	0x43	/* erase memory */
-#define STM32_CMD_EE	0x44	/* extended erase */
-#define STM32_CMD_WP	0x63	/* write protect */
-#define STM32_CMD_UW	0x73	/* disable write protect */
-#define STM32_CMD_RP	0x82	/* read protect */
-#define STM32_CMD_UR	0x92	/* disable read protect */
-#endif
-
-typedef struct {
-	uint16_t	id;
-	char		*name;
-	uint32_t	ram_start, ram_end;
-	uint32_t	fl_start, fl_end;
-	uint16_t	fl_pps; // pages per sector
-	uint16_t	fl_ps;  // page size
-	uint32_t	opt_start, opt_end;
-	uint32_t	mem_start, mem_end;
-} stm32_dev_t;
-
-const stm32_dev_t devices[] = {
-	{0x412, "Low-density"      , 0x20000200, 0x20002800, 0x08000000, 0x08008000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x410, "Medium-density"   , 0x20000200, 0x20005000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x414, "High-density"     , 0x20000200, 0x20010000, 0x08000000, 0x08080000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x418, "Connectivity line", 0x20000200, 0x20010000, 0x08000000, 0x08040000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFB000, 0x1FFFF800},
-	{0x420, "Medium-density VL", 0x20000200, 0x20002000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x430, "XL-density"       , 0x20000800, 0x20018000, 0x08000000, 0x08100000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFE000, 0x1FFFF800},
-	{0x000}
-};
-
-typedef struct {
-	uint8_t		get;
-	uint8_t		gvr;
-	uint8_t		gid;
-	uint8_t		rm;
-	uint8_t		go;
-	uint8_t		wm;
-	uint8_t		er; /* this may be extended erase */
-//	uint8_t		ee;
-	uint8_t		wp;
-	uint8_t		uw;
-	uint8_t		rp;
-	uint8_t		ur;
-} stm32_cmd_t;
-
-typedef struct {
-	uint8_t			bl_version;
-	uint8_t			version;
-	uint8_t			option1, option2;
-	uint16_t		pid;
-	stm32_cmd_t		cmd;
-	const stm32_dev_t	*dev;
-} stm32_t;
-
-int		fd;
+serial_t	*serial;
 stm32_t		stm;
 char		le; //true if cpu is little-endian
 
 uint32_t swap_u32(const uint32_t v);
 void     send_byte(const uint8_t byte);
 char     read_byte();
-char*    read_str();
 char     send_command(uint8_t cmd);
 char     init_stm32();
 void     free_stm32();
@@ -110,7 +46,6 @@ char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
 char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
 
 int main(int argc, char* argv[]) {
-	struct termios oldtio, newtio;
 	int i;
 
 	/* detect CPU endian */
@@ -119,7 +54,7 @@ int main(int argc, char* argv[]) {
 	char *device = NULL;
 
 	int		ret		= 1;
-	speed_t		baudRate	= B57600;
+	serial_baud_t	baudRate	= SERIAL_BAUD_57600;
 	int		rd	 	= 0;
 	int		wr		= 0;
 	char		verify		= 0;
@@ -137,15 +72,15 @@ int main(int argc, char* argv[]) {
 						return 1;
 					}
 					switch(atoi(argv[++i])) {
-						case   1200: baudRate = B1200  ; break;
-						case   1800: baudRate = B1800  ; break;
-						case   2400: baudRate = B2400  ; break;
-						case   4800: baudRate = B4800  ; break;
-						case   9600: baudRate = B9600  ; break;
-						case  19200: baudRate = B19200 ; break;
-						case  38400: baudRate = B38400 ; break;
-						case  57600: baudRate = B57600 ; break;
-						case 115200: baudRate = B115200; break;
+						case   1200: baudRate = SERIAL_BAUD_1200  ; break;
+						case   1800: baudRate = SERIAL_BAUD_1800  ; break;
+						case   2400: baudRate = SERIAL_BAUD_2400  ; break;
+						case   4800: baudRate = SERIAL_BAUD_4800  ; break;
+						case   9600: baudRate = SERIAL_BAUD_9600  ; break;
+						case  19200: baudRate = SERIAL_BAUD_19200 ; break;
+						case  38400: baudRate = SERIAL_BAUD_38400 ; break;
+						case  57600: baudRate = SERIAL_BAUD_57600 ; break;
+						case 115200: baudRate = SERIAL_BAUD_115200; break;
 						default:
 							fprintf(stderr,
 								"Invalid baud rate, valid options are:\n"
@@ -233,25 +168,23 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY);
-	if (fd < 0) {
+	serial = serial_open(device);
+	if (!serial) {
 		perror(device);
 		return 1;
 	}
-	fcntl(fd, F_SETFL, 0);
 
-	tcgetattr(fd, &oldtio);
-	tcgetattr(fd, &newtio);
+	if (serial_setup(
+		serial,
+		baudRate,
+		SERIAL_BITS_8,
+		SERIAL_PARITY_EVEN,
+		SERIAL_STOPBIT_1
+	) != SERIAL_ERR_OK) {
+		perror(device);
+		return 1;
+	}
 
-	cfmakeraw(&newtio);
-	newtio.c_cflag |= PARENB;
-	newtio.c_cc[VMIN ] = 0;
-	newtio.c_cc[VTIME] = 20;
-	cfsetispeed(&newtio, baudRate);
-	cfsetospeed(&newtio, baudRate);
-
-	tcflush  (fd, TCIFLUSH);
-	tcsetattr(fd, TCSANOW, &newtio);
 	if (!init_stm32()) goto close;
 
 	printf("stm32flash - http://stm32flash.googlecode.com/\n");
@@ -376,8 +309,7 @@ int main(int argc, char* argv[]) {
 
 close:
 	free_stm32();
-	tcsetattr(fd, TCSANOW, &oldtio);
-	close(fd);
+	serial_close(serial);
 
 	if (rd) close(rd);
 	if (wr) close(wr);
@@ -395,23 +327,23 @@ inline uint32_t swap_u32(const uint32_t v) {
 }
 
 void send_byte(const uint8_t byte) {
-	assert(write(fd, &byte, 1) == 1);
+	serial_err_t err;
+	err = serial_write(serial, &byte, 1);
+	if (err != SERIAL_ERR_OK) {
+		perror("send_byte");
+		assert(0);
+	}
 }
 
 char read_byte() {
-	char ret;
-	assert(read(fd, &ret, 1) == 1);
-	return ret;
-}
-
-char *read_str() {
-	uint8_t	len;
-	char	*ret;
-	len = read_byte();
-	ret = malloc(len + 1);
-	read(fd, ret, len);
-	ret[len] = 0;
-	return ret;
+	uint8_t byte;
+	serial_err_t err;
+	err = serial_read(serial, &byte, 1);
+	if (err != SERIAL_ERR_OK) {
+		perror("read_byte");
+		assert(0);
+	}
+	return byte;
 }
 
 char send_command(uint8_t cmd) {
@@ -425,14 +357,11 @@ char send_command(uint8_t cmd) {
 }
 
 char init_stm32() {
-	uint8_t init;
 	uint8_t len;
 	memset(&stm, 0, sizeof(stm32_t));
 
-	init = STM32_CMD_INIT;
-	assert(write(fd, &init, 1) == 1);
-	assert(read (fd, &init, 1) == 1);
-	if (init != STM32_ACK) {
+	send_byte(STM32_CMD_INIT);
+	if (read_byte() != STM32_ACK) {
 		fprintf(stderr, "Failed to get init ACK from device\n");
 		return 0;
 	}
@@ -500,7 +429,6 @@ char erase_memory() {
 char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	uint8_t cs;
 	unsigned int i;
-	ssize_t r;
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -513,7 +441,7 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	     ((address & 0x000000FF) >>  0);
 
 	if (!send_command(stm.cmd.rm)) return 0;
-	write(fd, &address, 4);
+	assert(serial_write(serial, &address, 4) == SERIAL_ERR_OK);
 	send_byte(cs);
 	if (read_byte() != STM32_ACK) return 0;
 
@@ -522,13 +450,7 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	send_byte(i ^ 0xFF);
 	if (read_byte() != STM32_ACK) return 0;
 
-	while(len > 0) {
-		r        = read(fd, data, len);
-		len	-= r;
-		data	+= r;
-		assert(r > 0);
-	}
-
+	assert(serial_read(serial, data, len) == SERIAL_ERR_OK);
 	return 1;
 }
 
@@ -549,7 +471,7 @@ char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 
 	/* send the address and checksum */
 	if (!send_command(stm.cmd.wm)) return 0;
-	write(fd, &address, 4);
+	assert(serial_write(serial, &address, 4) == SERIAL_ERR_OK);
 	send_byte(cs);
 	if (read_byte() != STM32_ACK) return 0;
 
@@ -562,7 +484,7 @@ char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	for(i = 0; i < len; ++i)
 		cs ^= data[i];
 
-	assert(write(fd, data, len) == len);
+	assert(serial_write(serial, data, len) == SERIAL_ERR_OK);
 
 	/* write the alignment padding */
 	for(c = 0; c < extra; ++c) {
