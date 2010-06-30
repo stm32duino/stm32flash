@@ -61,10 +61,6 @@ int main(int argc, char* argv[]) {
 	int		retry		= 10;
 	char		*filename;
 
-	serial = serial_open("/dev/ttyS0");
-	printf("Serial Config: %s\n", serial_get_setup_str(serial));
-	serial_close(serial);
-
 	printf("\n");
 	for(i = 1; i < argc; ++i) {
 		if (argv[i][0] == '-') {
