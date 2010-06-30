@@ -32,7 +32,18 @@
 
 serial_t	*serial;
 stm32_t		stm;
-char		le; //true if cpu is little-endian
+char		le		= 0; //true if cpu is little-endian
+
+char		*device		= NULL;
+serial_baud_t	baudRate	= SERIAL_BAUD_57600;
+int		rd	 	= 0;
+int		wr		= 0;
+char		verify		= 0;
+int		retry		= 10;
+char		*filename;
+
+int      parse_options(int argc, char *argv[]);
+void     show_help(char *name);
 
 uint32_t swap_u32(const uint32_t v);
 void     send_byte(const uint8_t byte);
@@ -45,102 +56,16 @@ char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
 char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
 
 int main(int argc, char* argv[]) {
-	int i;
+	int ret = 1;
 
 	/* detect CPU endian */
 	const uint32_t x = 0x12345678;
 	le = ((unsigned char*)&x)[0] == 0x78;
-	char *device = NULL;
 
-	int		ret		= 1;
-	serial_baud_t	baudRate	= SERIAL_BAUD_57600;
-	int		rd	 	= 0;
-	int		wr		= 0;
-	char		verify		= 0;
-	int		retry		= 10;
-	char		*filename;
-
-	printf("\n");
-	for(i = 1; i < argc; ++i) {
-		if (argv[i][0] == '-') {
-			switch(argv[i][1]) {
-				/* baud rate */
-				case 'b':
-					if (i == argc - 1) {
-						fprintf(stderr, "Baud rate not specified\n\n");
-						return 1;
-					}
-
-					baudRate = serial_get_baud(atoi(argv[++i]));
-					if (baudRate == SERIAL_BAUD_INVALID) {
-						fprintf(stderr,	"Invalid baud rate, valid options are:\n");
-						for(baudRate = SERIAL_BAUD_1200; baudRate != SERIAL_BAUD_INVALID; ++baudRate)
-							fprintf(stderr, " %d\n", serial_get_baud_int(baudRate));
-						fprintf(stderr, "\n");
-						return 1;
-					}
-					break;
-
-				case 'r':
-				case 'w':
-					rd = rd || argv[i][1] == 'r';
-					wr = wr || argv[i][1] == 'w';
-					if (rd && wr) {
-						fprintf(stderr, "Invalid options, can't read & write at the same time\n\n");
-						return 1;
-					}
-					if (i == argc - 1) {
-						fprintf(stderr, "Filename not specified\n\n");
-						return 1;
-					}
-					filename = argv[++i];				
-					break;
-
-				case 'v':
-					verify = 1;
-					break;
-
-				case 'n':
-					if (i == argc - 1) {
-						fprintf(stderr, "Retry not specified\n\n");
-						return 1;
-					}
-					retry = atoi(argv[++i]);
-					break;
-
-				case 'h':
-					fprintf(stderr,
-						"stm32flash - http://stm32flash.googlecode.com/\n"
-						"usage: %s [-brwvnh] /dev/ttyS0\n"
-						"	-b rate		Baud rate (default 57600)\n"
-						"	-r filename	Read flash to file\n"
-						"	-w filename	Write flash to file\n"
-						"	-v		Verify writes\n"
-						"	-n N		Retry failed writes up to N times (default 10)\n"
-						"	-h		Show this help\n"
-						"\n",
-						argv[0]
-					);
-					return 1;
-					break;
-			}
-		} else {
-			if (!device) device = argv[i];
-			else {
-				device = NULL;
-				break;
-			}
-		}
-	}
-
-	if (!device || (!rd && !wr)) {
-		fprintf(stderr, "Invalid usage, -h for help\n\n");
-		return 1;
-	}
-
-	if (rd && verify) {
-		fprintf(stderr, "Invalid usage, -v is only valid when writing\n\n");
-		return 1;
+	printf("\nstm32flash - http://stm32flash.googlecode.com/\n");
+	if ((ret = parse_options(argc, argv)) != 0) {
+		printf("\n");
+		return ret;
 	}
 
 	if (wr) {
@@ -168,9 +93,7 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	printf("stm32flash - http://stm32flash.googlecode.com/\n");
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
-
 	if (!init_stm32()) goto close;
 
 	printf("Version      : 0x%02x\n", stm.bl_version);
@@ -300,6 +223,88 @@ close:
 	if (wr) close(wr);
 	printf("\n");
 	return ret;
+}
+
+int parse_options(int argc, char *argv[]) {
+	int c;
+	while((c = getopt(argc, argv, "b:r:w:vn:h")) != -1) {
+		switch(c) {
+			case 'b':
+				baudRate = serial_get_baud(atoi(optarg));
+				if (baudRate == SERIAL_BAUD_INVALID) {
+					fprintf(stderr,	"Invalid baud rate, valid options are:\n");
+					for(baudRate = SERIAL_BAUD_1200; baudRate != SERIAL_BAUD_INVALID; ++baudRate)
+						fprintf(stderr, " %d\n", serial_get_baud_int(baudRate));
+					return 1;
+				}
+				break;
+
+			case 'r':
+			case 'w':
+				rd = rd || c == 'r';
+				wr = wr || c == 'w';
+				if (rd && wr) {
+					fprintf(stderr, "Invalid options, can't read & write at the same time\n");
+					return 1;
+				}
+				filename = optarg;
+				break;
+
+			case 'v':
+				verify = 1;
+				break;
+
+			case 'n':
+				retry = atoi(optarg);
+				break;
+
+			case 'h':
+				show_help(argv[0]);
+				return 1;
+		}
+	}
+
+	if (!rd && !wr) {
+		fprintf(stderr, "Invalid usage, -r or -w must be specified\n");
+		show_help(argv[0]);
+		return 1;
+	}
+
+	for (c = optind; c < argc; ++c) {
+		if (device) {
+			fprintf(stderr, "Invalid parameter specified\n");
+			show_help(argv[0]);
+			return 1;
+		}
+		device = argv[c];
+	}
+
+	if (device == NULL) {
+		fprintf(stderr, "Device not specified\n");
+		show_help(argv[0]);
+		return 1;
+	}
+
+	if (rd && verify) {
+		fprintf(stderr, "Invalid usage, -v is only valid when writing\n");
+		show_help(argv[0]);
+		return 1;
+	}
+
+	return 0;
+}
+
+void show_help(char *name) {
+	fprintf(stderr,
+		"usage: %s [-bvnh] -(r|w) filename /dev/ttyS0\n"
+		"	-b rate		Baud rate (default 57600)\n"
+		"	-r filename	Read flash to file\n"
+		"	-w filename	Write flash to file\n"
+		"	-v		Verify writes\n"
+		"	-n N		Retry failed writes up to N times (default 10)\n"
+		"	-h		Show this help\n",
+		name
+	);
 }
 
 inline uint32_t swap_u32(const uint32_t v) {
