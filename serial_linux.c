@@ -134,14 +134,15 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 
 	/* reset the settings */
 	cfmakeraw(&h->newtio);
-	h->newtio.c_cflag &= ~CS8;
+	h->newtio.c_iflag &= ~(IXON | IXOFF | CRTSCTS);
+	h->newtio.c_cflag &= ~CSIZE;
 
 	/* setup the new settings */
 	cfsetispeed(&h->newtio, port_baud);
 	cfsetospeed(&h->newtio, port_baud);
 	h->newtio.c_cflag |= port_parity;
 	h->newtio.c_cflag |= port_bits;
-	h->newtio.c_iflag |= port_stop;
+	h->newtio.c_iflag |= port_stop | CREAD;
 
 	/* set the settings */
 	serial_flush(h);
@@ -174,7 +175,7 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 
 	while(len > 0) {
 		r = write(h->fd, pos, len);
-		if (r < 0) return SERIAL_ERR_SYSTEM;
+		if (r < 1) return SERIAL_ERR_SYSTEM;
 
 		len -= r;
 		pos += r;
@@ -191,7 +192,7 @@ serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len
 
 	while(len > 0) {
 		r = read(h->fd, pos, len);
-		if (r < 0) return SERIAL_ERR_SYSTEM;
+		if (r < 1) return SERIAL_ERR_SYSTEM;
 
 		len -= r;
 		pos += r;
