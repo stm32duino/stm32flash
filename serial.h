@@ -68,14 +68,19 @@ typedef enum {
 	SERIAL_ERR_INVALID_STOPBIT
 } serial_err_t;
 
-serial_t*    serial_open	(const char *device);
-void         serial_close	(serial_t *h);
-void         serial_flush	(const serial_t *h);
-serial_err_t serial_setup	(serial_t *h, const serial_baud_t baud, const serial_bits_t bits, const serial_parity_t parity, const serial_stopbit_t stopbit);
-serial_err_t serial_write	(const serial_t *h, const void *buffer, unsigned int len);
-serial_err_t serial_read	(const serial_t *h, const void *buffer, unsigned int len);
+serial_t*    serial_open (const char *device);
+void         serial_close(serial_t *h);
+void         serial_flush(const serial_t *h);
+serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bits_t bits, const serial_parity_t parity, const serial_stopbit_t stopbit);
+serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int len);
+serial_err_t serial_read (const serial_t *h, const void *buffer, unsigned int len);
+const char*  serial_get_setup_str(const serial_t *h);
 
-/* helper functions */
-serial_baud_t serial_get_baud	(unsigned int baud);
+/* common helper functions */
+serial_baud_t serial_get_baud            (const unsigned int baud);
+const unsigned int serial_get_baud_int   (const serial_baud_t baud);
+const unsigned int serial_get_bits_int   (const serial_bits_t bits);
+const char         serial_get_parity_str (const serial_parity_t parity);
+const unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit);
 
 #endif

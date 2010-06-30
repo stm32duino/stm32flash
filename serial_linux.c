@@ -22,6 +22,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <stdio.h>
+#include <assert.h>
 
 #include "serial.h"
 
@@ -30,6 +32,7 @@ struct serial {
 	struct termios		oldtio;
 	struct termios		newtio;
 
+	char			configured;
 	serial_baud_t		baud;
 	serial_bits_t		bits;
 	serial_parity_t		parity;
@@ -56,6 +59,8 @@ serial_t* serial_open(const char *device) {
 }
 
 void serial_close(serial_t *h) {
+	assert(h && h->fd > -1);
+
 	serial_flush(h);
 	tcsetattr(h->fd, TCSANOW, &h->oldtio);
 	close(h->fd);
@@ -63,10 +68,13 @@ void serial_close(serial_t *h) {
 }
 
 void serial_flush(const serial_t *h) {
+	assert(h && h->fd > -1);
 	tcflush(h->fd, TCIFLUSH);
 }
 
 serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bits_t bits, const serial_parity_t parity, const serial_stopbit_t stopbit) {
+	assert(h && h->fd > -1);
+
 	speed_t		port_baud;
 	tcflag_t	port_bits;
 	tcflag_t	port_parity;
@@ -117,6 +125,7 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 
 	/* if the port is already configured, no need to do anything */
 	if (
+		h->configured        &&
 		h->baud	   == baud   &&
 		h->bits	   == bits   &&
 		h->parity  == parity &&
@@ -149,14 +158,17 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 		settings.c_lflag != h->newtio.c_lflag
 	)	return SERIAL_ERR_UNKNOWN;
 
-	h->baud	   = baud;
-	h->bits	   = bits;
-	h->parity  = parity;
-	h->stopbit = stopbit;
+	h->configured = 1;
+	h->baud	      = baud;
+	h->bits	      = bits;
+	h->parity     = parity;
+	h->stopbit    = stopbit;
 	return SERIAL_ERR_OK;
 }
 
 serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int len) {
+	assert(h && h->fd > -1 && h->configured);
+
 	ssize_t r;
 	uint8_t *pos = (uint8_t*)buffer;
 
@@ -172,6 +184,8 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 }
 
 serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len) {
+	assert(h && h->fd > -1 && h->configured);
+
 	ssize_t r;
 	uint8_t *pos = (uint8_t*)buffer;
 
@@ -184,5 +198,20 @@ serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len
 	}
 
 	return SERIAL_ERR_OK;
+}
+
+const char* serial_get_setup_str(const serial_t *h) {
+	static char str[11];
+	if (!h->configured)
+		snprintf(str, sizeof(str), "INVALID");
+	else
+		snprintf(str, sizeof(str), "%u %d%c%d",
+			serial_get_baud_int   (h->baud   ),
+			serial_get_bits_int   (h->bits   ),
+			serial_get_parity_str (h->parity ),
+			serial_get_stopbit_int(h->stopbit)
+		);
+
+	return str;
 }
 

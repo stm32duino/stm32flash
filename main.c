@@ -61,6 +61,10 @@ int main(int argc, char* argv[]) {
 	int		retry		= 10;
 	char		*filename;
 
+	serial = serial_open("/dev/ttyS0");
+	printf("Serial Config: %s\n", serial_get_setup_str(serial));
+	serial_close(serial);
+
 	printf("\n");
 	for(i = 1; i < argc; ++i) {
 		if (argv[i][0] == '-') {
@@ -74,18 +78,10 @@ int main(int argc, char* argv[]) {
 
 					baudRate = serial_get_baud(atoi(argv[++i]));
 					if (baudRate == SERIAL_BAUD_INVALID) {
-						fprintf(stderr,
-							"Invalid baud rate, valid options are:\n"
-							" 1200\n"
-							" 1800\n"
-							" 2400\n"
-							" 4800\n"
-							" 9600\n"
-							" 19200\n"
-							" 38400\n"
-							" 57600 (default)\n"
-							" 115200\n"
-						);
+						fprintf(stderr,	"Invalid baud rate, valid options are:\n");
+						for(baudRate = SERIAL_BAUD_1200; baudRate != SERIAL_BAUD_INVALID; ++baudRate)
+							fprintf(stderr, " %d\n", serial_get_baud_int(baudRate));
+						fprintf(stderr, "\n");
 						return 1;
 					}
 					break;
@@ -180,10 +176,11 @@ int main(int argc, char* argv[]) {
 	if (!init_stm32()) goto close;
 
 	printf("stm32flash - http://stm32flash.googlecode.com/\n");
-	printf("Version   : 0x%02x\n", stm.bl_version);
-	printf("Option 1  : 0x%02x\n", stm.option1);
-	printf("Option 2  : 0x%02x\n", stm.option2);
-	printf("Device ID : 0x%04x (%s)\n", stm.pid, stm.dev->name);
+	printf("Serial Config: %s\n", serial_get_setup_str(serial));
+	printf("Version      : 0x%02x\n", stm.bl_version);
+	printf("Option 1     : 0x%02x\n", stm.option1);
+	printf("Option 2     : 0x%02x\n", stm.option2);
+	printf("Device ID    : 0x%04x (%s)\n", stm.pid, stm.dev->name);
 	printf("RAM       : %dKiB  (%db reserved by bootloader)\n", (stm.dev->ram_end - 0x20000000) / 1024, stm.dev->ram_start - 0x20000000);
 	printf("Flash     : %dKiB (sector size: %dx%d)\n", (stm.dev->fl_end - stm.dev->fl_start ) / 1024, stm.dev->fl_pps, stm.dev->fl_ps);
 	printf("Option RAM: %db\n", stm.dev->opt_end - stm.dev->opt_start);
