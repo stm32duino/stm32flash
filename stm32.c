@@ -110,8 +110,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	if (init) {
 		stm32_send_byte(stm, STM32_CMD_INIT);
 		if (stm32_read_byte(stm) != STM32_ACK) {
-			free(stm->cmd);
-			free(stm);
+			stm32_close(stm);
 			fprintf(stderr, "Failed to get init ACK from device\n");
 			return NULL;
 		}
@@ -137,15 +136,13 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 		while(len-- > 0) stm32_read_byte(stm);
 	}
 	if (stm32_read_byte(stm) != STM32_ACK) {
-		free(stm->cmd);
-		free(stm);
+		stm32_close(stm);
 		return NULL;
 	}
 	
 	/* get the version and read protection status  */
 	if (!stm32_send_command(stm, stm->cmd->gvr)) {
-		free(stm->cmd);
-		free(stm);
+		stm32_close(stm);
 		return NULL;
 	}
 
@@ -153,28 +150,24 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	stm->option1 = stm32_read_byte(stm);
 	stm->option2 = stm32_read_byte(stm);
 	if (stm32_read_byte(stm) != STM32_ACK) {
-		free(stm->cmd);
-		free(stm);
+		stm32_close(stm);
 		return NULL;
 	}
 
 	/* get the device ID */
 	if (!stm32_send_command(stm, stm->cmd->gid)) {
-		free(stm->cmd);
-		free(stm);
+		stm32_close(stm);
 		return NULL;
 	}
 	len = stm32_read_byte(stm) + 1;
 	if (len != 2) {
+		stm32_close(stm);
 		fprintf(stderr, "More then two bytes sent in the PID, unknown/unsupported device\n");
-		free(stm->cmd);
-		free(stm);
 		return NULL;
 	}
 	stm->pid = (stm32_read_byte(stm) << 8) | stm32_read_byte(stm);
 	if (stm32_read_byte(stm) != STM32_ACK) {
-		free(stm->cmd);
-		free(stm);
+		stm32_close(stm);
 		return NULL;
 	}
 
@@ -186,7 +179,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 }
 
 void stm32_close(stm32_t *stm) {
-	free(stm->cmd);
+	if (stm) free(stm->cmd);
 	free(stm);
 }
 
