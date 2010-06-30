@@ -30,10 +30,16 @@
 #include "utils.h"
 #include "serial.h"
 #include "stm32.h"
+#include "parser.h"
+
+#include "parsers/binary.h"
 
 /* device globals */
 serial_t	*serial;
 stm32_t		*stm;
+
+void		*p_st;
+parser_t	*parser = &PARSER_BINARY;
 
 /* settings */
 char		*device		= NULL;
@@ -56,7 +62,13 @@ int main(int argc, char* argv[]) {
 	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
 	if ((ret = parse_options(argc, argv)) != 0) {
 		printf("\n");
-		return ret;
+		return 1;
+	}
+
+	p_st = parser->init();
+	if (!p_st) {
+		fprintf(stderr, "%s Parser failed to initialize\n", parser->name);
+		return 1;
 	}
 
 	if (wr) {
@@ -104,11 +116,8 @@ int main(int argc, char* argv[]) {
 	int		failed = 0;
 
 	if (rd) {
-		rd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
-		if (rd < 0) {
-			perror(filename);
+		if (parser->open(p_st, filename, 1) != PARSER_ERR_OK)
 			goto close;
-		}
 
 		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
