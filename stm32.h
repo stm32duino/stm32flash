@@ -21,6 +21,9 @@
 #ifndef _STM32_H
 #define _STM32_H
 
+#include <stdint.h>
+#include "serial.h"
+
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
 #define STM32_CMD_INIT	0x7F
@@ -53,16 +56,6 @@ typedef struct {
 	uint32_t	mem_start, mem_end;
 } stm32_dev_t;
 
-const stm32_dev_t devices[] = {
-	{0x412, "Low-density"      , 0x20000200, 0x20002800, 0x08000000, 0x08008000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x410, "Medium-density"   , 0x20000200, 0x20005000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x414, "High-density"     , 0x20000200, 0x20010000, 0x08000000, 0x08080000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x418, "Connectivity line", 0x20000200, 0x20010000, 0x08000000, 0x08040000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFB000, 0x1FFFF800},
-	{0x420, "Medium-density VL", 0x20000200, 0x20002000, 0x08000000, 0x08020000, 4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
-	{0x430, "XL-density"       , 0x20000800, 0x20018000, 0x08000000, 0x08100000, 2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFE000, 0x1FFFF800},
-	{0x000}
-};
-
 typedef struct {
 	uint8_t get;
 	uint8_t gvr;
@@ -79,6 +72,7 @@ typedef struct {
 } stm32_cmd_t;
 
 typedef struct {
+	const serial_t		*serial;
 	uint8_t			bl_version;
 	uint8_t			version;
 	uint8_t			option1, option2;
@@ -86,5 +80,12 @@ typedef struct {
 	stm32_cmd_t		cmd;
 	const stm32_dev_t	*dev;
 } stm32_t;
+
+stm32_t* stm32_init    (const serial_t *serial);
+void stm32_close       (stm32_t *stm);
+char stm32_read_memory (const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
+char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
+char stm32_erase_memory(const stm32_t *stm);
+char stm32_go          (const stm32_t *stm, uint32_t address);
 
 #endif

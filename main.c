@@ -27,13 +27,15 @@
 #include <string.h>
 #include <assert.h>
 
+#include "utils.h"
 #include "serial.h"
 #include "stm32.h"
 
+/* device globals */
 serial_t	*serial;
-stm32_t		stm;
-char		le		= 0; //true if cpu is little-endian
+stm32_t		*stm;
 
+/* settings */
 char		*device		= NULL;
 serial_baud_t	baudRate	= SERIAL_BAUD_57600;
 int		rd	 	= 0;
@@ -44,28 +46,12 @@ char		exec_flag	= 0;
 uint32_t	execute		= 0;
 char		*filename;
 
-int      parse_options(int argc, char *argv[]);
-void     show_help(char *name);
-
-uint32_t swap_u32(const uint32_t v);
-uint8_t  gen_cs  (const uint32_t v);
-
-void     send_byte(const uint8_t byte);
-char     read_byte();
-char     send_command(uint8_t cmd);
-char     init_stm32();
-void     free_stm32();
-char     erase_memory();
-char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
-char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
-char     go(uint32_t address);
+/* functions */
+int  parse_options(int argc, char *argv[]);
+void show_help(char *name);
 
 int main(int argc, char* argv[]) {
 	int ret = 1;
-
-	/* detect CPU endian */
-	const uint32_t x = 0x12345678;
-	le = ((unsigned char*)&x)[0] == 0x78;
 
 	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
 	if ((ret = parse_options(argc, argv)) != 0) {
@@ -99,16 +85,16 @@ int main(int argc, char* argv[]) {
 	}
 
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
-	if (!init_stm32()) goto close;
+	if (!(stm = stm32_init(serial))) goto close;
 
-	printf("Version      : 0x%02x\n", stm.bl_version);
-	printf("Option 1     : 0x%02x\n", stm.option1);
-	printf("Option 2     : 0x%02x\n", stm.option2);
-	printf("Device ID    : 0x%04x (%s)\n", stm.pid, stm.dev->name);
-	printf("RAM       : %dKiB  (%db reserved by bootloader)\n", (stm.dev->ram_end - 0x20000000) / 1024, stm.dev->ram_start - 0x20000000);
-	printf("Flash     : %dKiB (sector size: %dx%d)\n", (stm.dev->fl_end - stm.dev->fl_start ) / 1024, stm.dev->fl_pps, stm.dev->fl_ps);
-	printf("Option RAM: %db\n", stm.dev->opt_end - stm.dev->opt_start);
-	printf("System RAM: %dKiB\n", (stm.dev->mem_end - stm.dev->mem_start) / 1024);
+	printf("Version      : 0x%02x\n", stm->bl_version);
+	printf("Option 1     : 0x%02x\n", stm->option1);
+	printf("Option 2     : 0x%02x\n", stm->option2);
+	printf("Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
+	printf("RAM       : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
+	printf("Flash     : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
+	printf("Option RAM: %db\n", stm->dev->opt_end - stm->dev->opt_start);
+	printf("System RAM: %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 	printf("\n");
 
 
@@ -124,13 +110,13 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		addr = stm.dev->fl_start;
+		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
-		while(addr < stm.dev->fl_end) {
-			uint32_t left	= stm.dev->fl_end - addr;
+		while(addr < stm->dev->fl_end) {
+			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
-			if (!read_memory(addr, buffer, len)) {
+			if (!stm32_read_memory(stm, addr, buffer, len)) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
 				goto close;
 			}
@@ -140,7 +126,7 @@ int main(int argc, char* argv[]) {
 			fprintf(stdout,
 				"\x1B[uRead address 0x%08x (%.2f%%) ",
 				addr,
-				(100.0f / (float)(stm.dev->fl_end - stm.dev->fl_start)) * (float)(addr - stm.dev->fl_start)
+				(100.0f / (float)(stm->dev->fl_end - stm->dev->fl_start)) * (float)(addr - stm->dev->fl_start)
 			);
 			fflush(stdout);
 		}
@@ -153,16 +139,16 @@ int main(int argc, char* argv[]) {
 		off_t 	offset = 0;
 		ssize_t r;
 		assert(stat(filename, &st) == 0);
-		if (st.st_size > stm.dev->fl_end - stm.dev->fl_start) {
+		if (st.st_size > stm->dev->fl_end - stm->dev->fl_start) {
 			fprintf(stderr, "File provided larger then available flash space.\n");
 			goto close;
 		}
 
-		addr = stm.dev->fl_start;
+		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
 		fflush(stdout);
-		while(addr < stm.dev->fl_end && offset < st.st_size) {
-			uint32_t left	= stm.dev->fl_end - addr;
+		while(addr < stm->dev->fl_end && offset < st.st_size) {
+			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
 			len		= len > st.st_size - offset ? st.st_size - offset : len;
 			r		= read(wr, buffer, len);
@@ -172,14 +158,14 @@ int main(int argc, char* argv[]) {
 			}
 			
 			again:
-			if (!write_memory(addr, buffer, len)) {
+			if (!stm32_write_memory(stm, addr, buffer, len)) {
 				fprintf(stderr, "Failed to write memory at address 0x%08x\n", addr);
 				goto close;
 			}
 
 			if (verify) {
 				uint8_t compare[len];
-				if (!read_memory(addr, compare, len)) {
+				if (!stm32_read_memory(stm, addr, compare, len)) {
 					fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
 					goto close;
 				}
@@ -223,16 +209,16 @@ int main(int argc, char* argv[]) {
 close:
 	if (exec_flag && ret == 0) {
 		if (execute == 0)
-			execute = stm.dev->fl_start;
+			execute = stm->dev->fl_start;
 
 		fprintf(stdout, "Starting execution at address 0x%08x... ", execute);
 		fflush(stdout);
-		if (go(execute))
+		if (stm32_go(stm, execute))
 			fprintf(stdout, "done.\n");
 		else	fprintf(stdout, "failed.\n");
 	}
 
-	free_stm32();
+	stm32_close(stm);
 	serial_close(serial);
 
 	if (rd) close(rd);
@@ -340,198 +326,3 @@ void show_help(char *name) {
 	);
 }
 
-inline uint32_t swap_u32(const uint32_t v) {
-	if (le)
-		return	((v & 0xFF000000) >> 24) |
-			((v & 0x00FF0000) >>  8) |
-			((v & 0x0000FF00) <<  8) |
-			((v & 0x000000FF) << 24);
-	return v;
-}
-
-inline uint8_t gen_cs(const uint32_t v) {
-	return  ((v & 0xFF000000) >> 24) ^
-		((v & 0x00FF0000) >> 16) ^
-		((v & 0x0000FF00) >>  8) ^
-		((v & 0x000000FF) >>  0);
-}
-
-void send_byte(const uint8_t byte) {
-	serial_err_t err;
-	err = serial_write(serial, &byte, 1);
-	if (err != SERIAL_ERR_OK) {
-		perror("send_byte");
-		assert(0);
-	}
-}
-
-char read_byte() {
-	uint8_t byte;
-	serial_err_t err;
-	err = serial_read(serial, &byte, 1);
-	if (err != SERIAL_ERR_OK) {
-		perror("read_byte");
-		assert(0);
-	}
-	return byte;
-}
-
-char send_command(uint8_t cmd) {
-	send_byte(cmd);
-	send_byte(cmd ^ 0xFF);
-	if (read_byte() != STM32_ACK) {
-		fprintf(stderr, "Error sending command 0x%02x to device\n", cmd);
-		return 0;
-	}
-	return 1;
-}
-
-char init_stm32() {
-	uint8_t len;
-	memset(&stm, 0, sizeof(stm32_t));
-
-	send_byte(STM32_CMD_INIT);
-	if (read_byte() != STM32_ACK) {
-		fprintf(stderr, "Failed to get init ACK from device\n");
-		return 0;
-	}
-
-	/* get the bootloader information */
-	if (!send_command(STM32_CMD_GET)) return 0;
-	len            = read_byte() + 1;
-	stm.bl_version = read_byte(); --len;
-	stm.cmd.get    = read_byte(); --len;
-	stm.cmd.gvr    = read_byte(); --len;
-	stm.cmd.gid    = read_byte(); --len;
-	stm.cmd.rm     = read_byte(); --len;
-	stm.cmd.go     = read_byte(); --len;
-	stm.cmd.wm     = read_byte(); --len;
-	stm.cmd.er     = read_byte(); --len;
-	stm.cmd.wp     = read_byte(); --len;
-	stm.cmd.uw     = read_byte(); --len;
-	stm.cmd.rp     = read_byte(); --len;
-	stm.cmd.ur     = read_byte(); --len;
-	if (len > 0) {
-		fprintf(stderr, "Seems this bootloader returns more then we understand in the GET command, we will skip the unknown bytes\n");
-		while(len-- > 0) read_byte();
-	}
-	if (read_byte() != STM32_ACK) return 0;
-	
-	/* get the version and read protection status  */
-	if (!send_command(stm.cmd.gvr)) return 0;
-	stm.version = read_byte();
-	stm.option1 = read_byte();
-	stm.option2 = read_byte();
-	if (read_byte() != STM32_ACK) return 0;
-
-	/* get the device ID */
-	if (!send_command(stm.cmd.gid)) return 0;
-	len     = read_byte() + 1;
-	if (len != 2) {
-		fprintf(stderr, "More then two bytes sent in the PID, unknown/unsupported device\n");
-		return 0;
-	}
-	stm.pid = (read_byte() << 8) | read_byte();
-	if (read_byte() != STM32_ACK) return 0;
-
-	stm.dev = devices;
-	while(stm.dev->id != 0x00 && stm.dev->id != stm.pid)
-		++stm.dev;
-
-	if (stm.dev->id == 0x00) {
-		fprintf(stderr, "Unknown Device ID 0x%02x\n", stm.pid);
-		return 0;
-	}
-
-	return 1;
-}
-
-void free_stm32() {
-
-}
-
-char erase_memory() {
-	if (!send_command(stm.cmd.er)) return 0;
-	if (!send_command(0xFF      )) return 0;
-	return 1;
-}
-
-char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
-	uint8_t cs;
-	unsigned int i;
-	assert(len > 0 && len < 257);
-
-	/* must be 32bit aligned */
-	assert(address % 4 == 0);
-
-	address = swap_u32(address);
-	cs      = gen_cs  (address);
-
-	if (!send_command(stm.cmd.rm)) return 0;
-	assert(serial_write(serial, &address, 4) == SERIAL_ERR_OK);
-	send_byte(cs);
-	if (read_byte() != STM32_ACK) return 0;
-
-	i = len - 1;
-	send_byte(i);
-	send_byte(i ^ 0xFF);
-	if (read_byte() != STM32_ACK) return 0;
-
-	assert(serial_read(serial, data, len) == SERIAL_ERR_OK);
-	return 1;
-}
-
-char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
-	uint8_t cs;
-	unsigned int i;
-	int c, extra;
-	assert(len > 0 && len < 257);
-
-	/* must be 32bit aligned */
-	assert(address % 4 == 0);
-
-	address = swap_u32(address);
-	cs      = gen_cs  (address);
-
-	/* send the address and checksum */
-	if (!send_command(stm.cmd.wm)) return 0;
-	assert(serial_write(serial, &address, 4) == SERIAL_ERR_OK);
-	send_byte(cs);
-	if (read_byte() != STM32_ACK) return 0;
-
-	/* setup the cs and send the length */
-	extra = len % 4;
-	cs = len - 1 + extra;
-	send_byte(cs);
-
-	/* write the data and build the checksum */
-	for(i = 0; i < len; ++i)
-		cs ^= data[i];
-
-	assert(serial_write(serial, data, len) == SERIAL_ERR_OK);
-
-	/* write the alignment padding */
-	for(c = 0; c < extra; ++c) {
-		send_byte(0xFF);
-		cs ^= 0xFF;
-	}
-
-	/* send the checksum */
-	send_byte(cs);
-	return read_byte() == STM32_ACK;
-}
-
-char go(uint32_t address) {
-	uint8_t cs;
-
-	address = swap_u32(address);
-	cs      = gen_cs  (address);
-
-	if (!send_command(stm.cmd.go)) return 0;
-	serial_write(serial, &address, 4);
-	serial_write(serial, &cs     , 1);
-
-	return
-		read_byte() == STM32_ACK &&
-		read_byte() == STM32_ACK;
-}
