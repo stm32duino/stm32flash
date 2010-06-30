@@ -147,8 +147,7 @@ int main(int argc, char* argv[]) {
 		fprintf(stdout,	"Done.\n");
 		ret = 0;
 		goto close;
-	}
-
+	} else
 	if (wr) {
 		struct	stat st;
 		off_t 	offset = 0;
@@ -218,14 +217,15 @@ int main(int argc, char* argv[]) {
 		fprintf(stdout,	"Done.\n");
 		ret = 0;
 		goto close;
-	}
+	} else
+		ret = 0;
 
 close:
-	if (ret == 0 && exec_flag) {
+	if (exec_flag && ret == 0) {
 		if (execute == 0)
 			execute = stm.dev->fl_start;
 
-		fprintf(stdout, "Sending GO command for address 0x%08x... ", execute);
+		fprintf(stdout, "Starting execution at address 0x%08x... ", execute);
 		fflush(stdout);
 		if (go(execute))
 			fprintf(stdout, "done.\n");
