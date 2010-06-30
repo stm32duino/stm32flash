@@ -107,8 +107,6 @@ int main(int argc, char* argv[]) {
 	printf("Flash        : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
 	printf("Option RAM   : %db\n", stm->dev->opt_end - stm->dev->opt_start);
 	printf("System RAM   : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
-	printf("\n");
-
 
 	uint8_t		buffer[256];
 	uint32_t	addr;
