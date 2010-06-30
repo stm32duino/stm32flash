@@ -99,7 +99,7 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	return 1;
 }
 
-stm32_t* stm32_init(const serial_t *serial) {
+stm32_t* stm32_init(const serial_t *serial, const char init) {
 	uint8_t len;
 	stm32_t *stm;
 
@@ -107,12 +107,14 @@ stm32_t* stm32_init(const serial_t *serial) {
 	stm->cmd = calloc(sizeof(stm32_cmd_t), 1);
 	stm->serial = serial;
 
-	stm32_send_byte(stm, STM32_CMD_INIT);
-	if (stm32_read_byte(stm) != STM32_ACK) {
-		free(stm->cmd);
-		free(stm);
-		fprintf(stderr, "Failed to get init ACK from device\n");
-		return NULL;
+	if (init) {
+		stm32_send_byte(stm, STM32_CMD_INIT);
+		if (stm32_read_byte(stm) != STM32_ACK) {
+			free(stm->cmd);
+			free(stm);
+			fprintf(stderr, "Failed to get init ACK from device\n");
+			return NULL;
+		}
 	}
 
 	/* get the bootloader information */

@@ -134,7 +134,7 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
 	h->newtio.c_iflag &= ~(IXON | IXOFF | IXANY | IGNPAR);
 	h->newtio.c_lflag &= ~(ECHOK | ECHOCTL | ECHOKE);
-	h->newtio.c_oflag &= ~(OPOST);
+	h->newtio.c_oflag &= ~(OPOST | ONLCR);
 
 	/* setup the new settings */
 	cfsetispeed(&h->newtio, port_baud);

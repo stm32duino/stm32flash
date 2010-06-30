@@ -50,6 +50,7 @@ char		verify		= 0;
 int		retry		= 10;
 char		exec_flag	= 0;
 uint32_t	execute		= 0;
+char		init_flag	= 1;
 char		*filename;
 
 /* functions */
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
-	if (!(stm = stm32_init(serial))) goto close;
+	if (!(stm = stm32_init(serial, init_flag))) goto close;
 
 	printf("Version      : 0x%02x\n", stm->bl_version);
 	printf("Option 1     : 0x%02x\n", stm->option1);
@@ -151,6 +152,8 @@ int main(int argc, char* argv[]) {
 			fprintf(stderr, "File provided larger then available flash space.\n");
 			goto close;
 		}
+
+		stm32_erase_memory(stm);
 
 		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
@@ -234,7 +237,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:vn:g:h")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:vn:g:ch")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -270,6 +273,10 @@ int parse_options(int argc, char *argv[]) {
 				execute   = strtoul(optarg, NULL, 0);
 				break;
 
+			case 'c':
+				init_flag = 0;
+				break;
+
 			case 'h':
 				show_help(argv[0]);
 				return 1;
@@ -302,7 +309,7 @@ int parse_options(int argc, char *argv[]) {
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"Usage: %s [-bvnhg] [-[rw] filename] /dev/ttyS0\n"
+		"Usage: %s [-bvnhgc] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
@@ -310,6 +317,8 @@ void show_help(char *name) {
 		"	-n count	Retry failed writes up to count times (default 10)\n"
 		"	-g address	Start execution at specified address (0 = flash start)\n"
 		"	-h		Show this help\n"
+		"	-c		Resume the connection (don't send initial INIT)\n"
+		"			*Baud rate must be kept the same as the first init*\n"
 		"\n"
 		"Examples:\n"
 		"	Get device information:\n"
