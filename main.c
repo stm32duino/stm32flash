@@ -71,30 +71,22 @@ int main(int argc, char* argv[]) {
 						fprintf(stderr, "Baud rate not specified\n\n");
 						return 1;
 					}
-					switch(atoi(argv[++i])) {
-						case   1200: baudRate = SERIAL_BAUD_1200  ; break;
-						case   1800: baudRate = SERIAL_BAUD_1800  ; break;
-						case   2400: baudRate = SERIAL_BAUD_2400  ; break;
-						case   4800: baudRate = SERIAL_BAUD_4800  ; break;
-						case   9600: baudRate = SERIAL_BAUD_9600  ; break;
-						case  19200: baudRate = SERIAL_BAUD_19200 ; break;
-						case  38400: baudRate = SERIAL_BAUD_38400 ; break;
-						case  57600: baudRate = SERIAL_BAUD_57600 ; break;
-						case 115200: baudRate = SERIAL_BAUD_115200; break;
-						default:
-							fprintf(stderr,
-								"Invalid baud rate, valid options are:\n"
-								" 1200\n"
-								" 1800\n"
-								" 2400\n"
-								" 4800\n"
-								" 9600\n"
-								" 19200\n"
-								" 38400\n"
-								" 57600 (default)\n"
-								" 115200\n"
-							);
-							return 1;
+
+					baudRate = serial_get_baud(atoi(argv[++i]));
+					if (baudRate == SERIAL_BAUD_INVALID) {
+						fprintf(stderr,
+							"Invalid baud rate, valid options are:\n"
+							" 1200\n"
+							" 1800\n"
+							" 2400\n"
+							" 4800\n"
+							" 9600\n"
+							" 19200\n"
+							" 38400\n"
+							" 57600 (default)\n"
+							" 115200\n"
+						);
+						return 1;
 					}
 					break;
 
