@@ -6,5 +6,9 @@ all:
 		stm32.c \
 		serial_common.c \
 		serial_linux.c \
-		parsers/*.o \
+		parsers/parsers.a \
 		-Wall
+
+clean:
+	$(MAKE) -C parsers clean
+	rm -f stm32flash

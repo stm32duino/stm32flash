@@ -32,6 +32,7 @@
 #include "parser.h"
 
 #include "parsers/binary.h"
+#include "parsers/hex.h"
 
 /* device globals */
 serial_t	*serial;
