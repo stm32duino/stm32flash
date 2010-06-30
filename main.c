@@ -40,12 +40,16 @@ int		rd	 	= 0;
 int		wr		= 0;
 char		verify		= 0;
 int		retry		= 10;
+char		exec_flag	= 0;
+uint32_t	execute		= 0;
 char		*filename;
 
 int      parse_options(int argc, char *argv[]);
 void     show_help(char *name);
 
 uint32_t swap_u32(const uint32_t v);
+uint8_t  gen_cs  (const uint32_t v);
+
 void     send_byte(const uint8_t byte);
 char     read_byte();
 char     send_command(uint8_t cmd);
@@ -54,6 +58,7 @@ void     free_stm32();
 char     erase_memory();
 char     read_memory (uint32_t address, uint8_t data[], unsigned int len);
 char     write_memory(uint32_t address, uint8_t data[], unsigned int len);
+char     go(uint32_t address);
 
 int main(int argc, char* argv[]) {
 	int ret = 1;
@@ -62,7 +67,7 @@ int main(int argc, char* argv[]) {
 	const uint32_t x = 0x12345678;
 	le = ((unsigned char*)&x)[0] == 0x78;
 
-	printf("\nstm32flash - http://stm32flash.googlecode.com/\n");
+	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
 	if ((ret = parse_options(argc, argv)) != 0) {
 		printf("\n");
 		return ret;
@@ -216,6 +221,17 @@ int main(int argc, char* argv[]) {
 	}
 
 close:
+	if (ret == 0 && exec_flag) {
+		if (execute == 0)
+			execute = stm.dev->fl_start;
+
+		fprintf(stdout, "Sending GO command for address 0x%08x... ", execute);
+		fflush(stdout);
+		if (go(execute))
+			fprintf(stdout, "done.\n");
+		else	fprintf(stdout, "failed.\n");
+	}
+
 	free_stm32();
 	serial_close(serial);
 
@@ -230,7 +246,7 @@ int parse_options(int argc, char *argv[]) {
 	while((c = getopt(argc, argv, "b:r:w:vn:h")) != -1) {
 		switch(c) {
 			case 'b':
-				baudRate = serial_get_baud(atoi(optarg));
+				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
 				if (baudRate == SERIAL_BAUD_INVALID) {
 					fprintf(stderr,	"Invalid baud rate, valid options are:\n");
 					for(baudRate = SERIAL_BAUD_1200; baudRate != SERIAL_BAUD_INVALID; ++baudRate)
@@ -244,7 +260,7 @@ int parse_options(int argc, char *argv[]) {
 				rd = rd || c == 'r';
 				wr = wr || c == 'w';
 				if (rd && wr) {
-					fprintf(stderr, "Invalid options, can't read & write at the same time\n");
+					fprintf(stderr, "ERROR: Invalid options, can't read & write at the same time\n");
 					return 1;
 				}
 				filename = optarg;
@@ -255,7 +271,12 @@ int parse_options(int argc, char *argv[]) {
 				break;
 
 			case 'n':
-				retry = atoi(optarg);
+				retry = strtoul(optarg, NULL, 0);
+				break;
+
+			case 'g':
+				exec_flag = 1;
+				execute   = strtoul(optarg, NULL, 0);
 				break;
 
 			case 'h':
@@ -264,15 +285,9 @@ int parse_options(int argc, char *argv[]) {
 		}
 	}
 
-	if (!rd && !wr) {
-		fprintf(stderr, "Invalid usage, -r or -w must be specified\n");
-		show_help(argv[0]);
-		return 1;
-	}
-
 	for (c = optind; c < argc; ++c) {
 		if (device) {
-			fprintf(stderr, "Invalid parameter specified\n");
+			fprintf(stderr, "ERROR: Invalid parameter specified\n");
 			show_help(argv[0]);
 			return 1;
 		}
@@ -280,13 +295,13 @@ int parse_options(int argc, char *argv[]) {
 	}
 
 	if (device == NULL) {
-		fprintf(stderr, "Device not specified\n");
+		fprintf(stderr, "ERROR: Device not specified\n");
 		show_help(argv[0]);
 		return 1;
 	}
 
-	if (rd && verify) {
-		fprintf(stderr, "Invalid usage, -v is only valid when writing\n");
+	if (!wr && verify) {
+		fprintf(stderr, "ERROR: Invalid usage, -v is only valid when writing\n");
 		show_help(argv[0]);
 		return 1;
 	}
@@ -296,13 +311,31 @@ int parse_options(int argc, char *argv[]) {
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"usage: %s [-bvnh] -(r|w) filename /dev/ttyS0\n"
+		"Usage: %s [-bvnh] -([rw] filename|-g address)  /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
 		"	-v		Verify writes\n"
 		"	-n N		Retry failed writes up to N times (default 10)\n"
-		"	-h		Show this help\n",
+		"	-g address	Start execution at specified address (0 = flash start)\n"
+		"	-h		Show this help\n"
+		"\n"
+		"Examples:\n"
+		"	Get device information:\n"
+		"		%s /dev/ttyS0\n"
+		"\n"
+		"	Write with verify and then start execution:\n"
+		"		%s -w filename -v -g 0x0 /dev/ttyS0\n"
+		"\n"
+		"	Read flash to file:\n"
+		"		%s -r filename /dev/ttyS0\n"
+		"\n"
+		"	Start execution:\n"
+		"		%s -g 0x0 /dev/ttyS0\n",
+		name,
+		name,
+		name,
+		name,
 		name
 	);
 }
@@ -314,6 +347,13 @@ inline uint32_t swap_u32(const uint32_t v) {
 			((v & 0x0000FF00) <<  8) |
 			((v & 0x000000FF) << 24);
 	return v;
+}
+
+inline uint8_t gen_cs(const uint32_t v) {
+	return  ((v & 0xFF000000) >> 24) ^
+		((v & 0x00FF0000) >> 16) ^
+		((v & 0x0000FF00) >>  8) ^
+		((v & 0x000000FF) >>  0);
 }
 
 void send_byte(const uint8_t byte) {
@@ -425,10 +465,7 @@ char read_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	assert(address % 4 == 0);
 
 	address = swap_u32(address);
-	cs = ((address & 0xFF000000) >> 24) ^
-	     ((address & 0x00FF0000) >> 16) ^
-	     ((address & 0x0000FF00) >>  8) ^
-	     ((address & 0x000000FF) >>  0);
+	cs      = gen_cs  (address);
 
 	if (!send_command(stm.cmd.rm)) return 0;
 	assert(serial_write(serial, &address, 4) == SERIAL_ERR_OK);
@@ -454,10 +491,7 @@ char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	assert(address % 4 == 0);
 
 	address = swap_u32(address);
-	cs = ((address & 0xFF000000) >> 24) ^
-	     ((address & 0x00FF0000) >> 16) ^
-	     ((address & 0x0000FF00) >>  8) ^
-	     ((address & 0x000000FF) >>  0);
+	cs      = gen_cs  (address);
 
 	/* send the address and checksum */
 	if (!send_command(stm.cmd.wm)) return 0;
@@ -485,4 +519,19 @@ char write_memory(uint32_t address, uint8_t data[], unsigned int len) {
 	/* send the checksum */
 	send_byte(cs);
 	return read_byte() == STM32_ACK;
+}
+
+char go(uint32_t address) {
+	uint8_t cs;
+
+	address = swap_u32(address);
+	cs      = gen_cs  (address);
+
+	if (!send_command(stm.cmd.go)) return 0;
+	serial_write(serial, &address, 4);
+	serial_write(serial, &cs     , 1);
+
+	return
+		read_byte() == STM32_ACK &&
+		read_byte() == STM32_ACK;
 }
