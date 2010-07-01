@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
 		ret = 0;
 
 close:
-	if (exec_flag && ret == 0) {
+	if (stm && exec_flag && ret == 0) {
 		if (execute == 0)
 			execute = stm->dev->fl_start;
 
