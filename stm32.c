@@ -61,6 +61,9 @@ void    stm32_send_byte(const stm32_t *stm, uint8_t byte);
 uint8_t stm32_read_byte(const stm32_t *stm);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
+/* stm32 programs */
+extern unsigned int	stmreset_length;
+extern unsigned char	stmreset_binary[];
 
 uint8_t stm32_gen_cs(const uint32_t v) {
 	return  ((v & 0xFF000000) >> 24) ^
@@ -250,7 +253,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 
 char stm32_erase_memory(const stm32_t *stm) {
 	if (!stm32_send_command(stm, stm->cmd->er)) return 0;
-	if (!stm32_send_command(stm, 0xFF      )) return 0;
+	if (!stm32_send_command(stm, 0xFF        )) return 0;
 	return 1;
 }
 
@@ -265,5 +268,28 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 	serial_write(stm->serial, &cs     , 1);
 
 	return stm32_read_byte(stm) == STM32_ACK;
+}
+
+char stm32_reset_device(const stm32_t *stm) {
+	/*
+		since the bootloader does not have a reset command, we
+		upload the stmreset program into ram and run it, which
+		resets the device for us
+	*/
+
+	uint32_t length		= stmreset_length;
+	unsigned char* pos	= stmreset_binary;
+	uint32_t address	= stm->dev->ram_start;
+	while(length > 0) {
+		uint32_t w = length > 256 ? 256 : length;
+		if (!stm32_write_memory(stm, address, pos, w))
+			return 0;
+
+		address	+= w;
+		pos	+= w;
+		length	-= w;
+	}
+
+	return stm32_go(stm, stm->dev->ram_start);
 }
 

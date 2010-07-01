@@ -7,6 +7,7 @@ all:
 		serial_common.c \
 		serial_linux.c \
 		parsers/parsers.a \
+		stm32/stmreset_binary.c \
 		-Wall
 
 clean:

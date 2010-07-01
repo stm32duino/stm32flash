@@ -52,6 +52,7 @@ char		exec_flag	= 0;
 uint32_t	execute		= 0;
 char		init_flag	= 1;
 char		force_binary	= 0;
+char		reset_flag	= 1;
 char		*filename;
 
 /* functions */
@@ -252,9 +253,19 @@ close:
 		if (execute == 0)
 			execute = stm->dev->fl_start;
 
-		fprintf(stdout, "Starting execution at address 0x%08x... ", execute);
+		fprintf(stdout, "\nStarting execution at address 0x%08x... ", execute);
 		fflush(stdout);
-		if (stm32_go(stm, execute))
+		if (stm32_go(stm, execute)) {
+			reset_flag = 0;
+			fprintf(stdout, "done.\n");
+		} else
+			fprintf(stdout, "failed.\n");
+	}
+
+	if (stm && reset_flag) {
+		fprintf(stdout, "\nResetting device... ");
+		fflush(stdout);
+		if (stm32_reset_device(stm))
 			fprintf(stdout, "done.\n");
 		else	fprintf(stdout, "failed.\n");
 	}
@@ -356,6 +367,7 @@ void show_help(char *name) {
 		"	-h		Show this help\n"
 		"	-c		Resume the connection (don't send initial INIT)\n"
 		"			*Baud rate must be kept the same as the first init*\n"
+		"			This is useful if the reset fails\n"
 		"\n"
 		"Examples:\n"
 		"	Get device information:\n"

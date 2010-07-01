@@ -5,7 +5,7 @@ all:
 		linker.ld \
 		stmreset.c
 	arm-none-eabi-objcopy -O binary stmreset.elf stmreset.bin
-
+	./bin_to_c.sh stmreset
 clean:
 	rm -f stmreset.elf
 	rm -f stmreset.bin
