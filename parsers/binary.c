@@ -103,7 +103,7 @@ parser_err_t binary_write(void *storage, void *data, unsigned int len) {
 }
 
 parser_t PARSER_BINARY = {
-	"BINARY",
+	"Raw BINARY",
 	binary_init,
 	binary_open,
 	binary_close,

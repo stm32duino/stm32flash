@@ -42,4 +42,16 @@ enum parser_err {
 	PARSER_ERR_RDONLY
 };
 
+static inline const char* parser_errstr(parser_err_t err) {
+	switch(err) {
+		case PARSER_ERR_OK          : return "OK";
+		case PARSER_ERR_SYSTEM      : return "System Error";
+		case PARSER_ERR_INVALID_FILE: return "Invalid File";
+		case PARSER_ERR_WRONLY      : return "Parser can only write";
+		case PARSER_ERR_RDONLY      : return "Parser can only read";
+		default:
+			return "Unknown Error";
+	}
+}
+
 #endif

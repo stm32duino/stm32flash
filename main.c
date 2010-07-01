@@ -35,11 +35,11 @@
 #include "parsers/hex.h"
 
 /* device globals */
-serial_t	*serial;
-stm32_t		*stm;
+serial_t	*serial		= NULL;
+stm32_t		*stm		= NULL;
 
-void		*p_st;
-parser_t	*parser		= &PARSER_BINARY;
+void		*p_st		= NULL;
+parser_t	*parser		= NULL;
 
 /* settings */
 char		*device		= NULL;
@@ -51,6 +51,7 @@ int		retry		= 10;
 char		exec_flag	= 0;
 uint32_t	execute		= 0;
 char		init_flag	= 1;
+char		force_binary	= 0;
 char		*filename;
 
 /* functions */
@@ -59,29 +60,56 @@ void show_help(char *name);
 
 int main(int argc, char* argv[]) {
 	int ret = 1;
+	parser_err_t perr;
 
 	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
-	if ((ret = parse_options(argc, argv)) != 0) {
-		printf("\n");
-		return 1;
-	}
-
-	p_st = parser->init();
-	if (!p_st) {
-		fprintf(stderr, "%s Parser failed to initialize\n", parser->name);
-		return 1;
-	}
+	if ((ret = parse_options(argc, argv)) != 0)
+		goto close;
 
 	if (wr) {
-		if (parser->open(p_st, filename, 0) != PARSER_ERR_OK)
-			return 1;
-	}
+		/* first try hex */
+		if (!force_binary) {
+			parser = &PARSER_HEX;
+			p_st = parser->init();
+			if (!p_st) {
+				fprintf(stderr, "%s Parser failed to initialize\n", parser->name);
+				goto close;
+			}
+		}
+
+		if (force_binary || (perr = parser->open(p_st, filename, 0)) != PARSER_ERR_OK) {
+			if (force_binary || perr == PARSER_ERR_INVALID_FILE) {
+				if (!force_binary) {
+					parser->close(p_st);
+					p_st = NULL;
+				}
+
+				/* now try binary */
+				parser = &PARSER_BINARY;
+				p_st = parser->init();
+				if (!p_st) {
+					fprintf(stderr, "%s Parser failed to initialize\n", parser->name);
+					goto close;
+				}
+				perr = parser->open(p_st, filename, 0);
+			}
+
+			/* if still have an error, fail */
+			if (perr != PARSER_ERR_OK) {
+				fprintf(stderr, "%s ERROR: %s\n", parser->name, parser_errstr(perr));
+				if (perr == PARSER_ERR_SYSTEM) perror(filename);
+				goto close;
+			}
+		}
+
+		fprintf(stdout, "Using Parser : %s\n", parser->name);
+	} else
+		parser = &PARSER_BINARY;
 
 	serial = serial_open(device);
 	if (!serial) {
-		parser->close(p_st);
 		perror(device);
-		return 1;
+		goto close;
 	}
 
 	if (serial_setup(
@@ -92,8 +120,7 @@ int main(int argc, char* argv[]) {
 		SERIAL_STOPBIT_1
 	) != SERIAL_ERR_OK) {
 		perror(device);
-		parser->close(p_st);
-		return 1;
+		goto close;
 	}
 
 	printf("Serial Config: %s\n", serial_get_setup_str(serial));
@@ -114,8 +141,13 @@ int main(int argc, char* argv[]) {
 	int		failed = 0;
 
 	if (rd) {
-		if (parser->open(p_st, filename, 1) != PARSER_ERR_OK)
+		printf("\n");
+
+		if ((perr = parser->open(p_st, filename, 1)) != PARSER_ERR_OK) {
+			fprintf(stderr, "%s ERROR: %s\n", parser->name, parser_errstr(perr));
+			if (perr == PARSER_ERR_SYSTEM) perror(filename);
 			goto close;
+		}
 
 		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
@@ -142,6 +174,8 @@ int main(int argc, char* argv[]) {
 		goto close;
 	} else
 	if (wr) {
+		printf("\n");
+
 		off_t 	offset = 0;
 		ssize_t r;
 		unsigned int size = parser->size(p_st);
@@ -225,9 +259,9 @@ close:
 		else	fprintf(stdout, "failed.\n");
 	}
 
-	parser->close(p_st);
-	stm32_close(stm);
-	serial_close(serial);
+	if (p_st  ) parser->close(p_st);
+	if (stm   ) stm32_close  (stm);
+	if (serial) serial_close (serial);
 
 	printf("\n");
 	return ret;
@@ -235,7 +269,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:vn:g:ch")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:vn:g:fch")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -269,6 +303,10 @@ int parse_options(int argc, char *argv[]) {
 			case 'g':
 				exec_flag = 1;
 				execute   = strtoul(optarg, NULL, 0);
+				break;
+
+			case 'f':
+				force_binary = 1;
 				break;
 
 			case 'c':
@@ -307,13 +345,14 @@ int parse_options(int argc, char *argv[]) {
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"Usage: %s [-bvnhgc] [-[rw] filename] /dev/ttyS0\n"
+		"Usage: %s [-bvngfhc] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"
 		"	-g address	Start execution at specified address (0 = flash start)\n"
+		"	-f		Force binary parser\n"
 		"	-h		Show this help\n"
 		"	-c		Resume the connection (don't send initial INIT)\n"
 		"			*Baud rate must be kept the same as the first init*\n"

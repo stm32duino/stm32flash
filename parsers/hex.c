@@ -19,7 +19,6 @@
 
 
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -28,15 +27,12 @@
 #include <string.h>
 
 #include "hex.h"
+#include "utils.h"
 
 typedef struct {
-	int		fd;
-	char		write;
-	struct stat	stat;
-	int		bits;
-
 	size_t		data_len, offset;
 	uint8_t		*data;
+	uint8_t		base;
 } hex_t;
 
 void* hex_init() {
@@ -46,75 +42,134 @@ void* hex_init() {
 parser_err_t hex_open(void *storage, const char *filename, const char write) {
 	hex_t *st = storage;
 	if (write) {
-		st->fd = open(
-			filename,
-			O_WRONLY | O_CREAT | O_TRUNC,
-			S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
-		);
+		return PARSER_ERR_RDONLY;
 	} else {
-		if (stat(filename, &st->stat) != 0)
-			return PARSER_ERR_INVALID_FILE;
-		st->fd = open(filename, O_RDONLY);
-
-		/* read in the file */
 		char mark;
-		int i;
+		int i, fd;
 		uint8_t checksum;
 		unsigned int c;
+		uint32_t base = 0;
 
-		while(read(st->fd, &mark, 1) != 0) {
+		fd = open(filename, O_RDONLY);
+		if (fd < 0)
+			return PARSER_ERR_SYSTEM;
+
+		/* read in the file */
+
+		while(read(fd, &mark, 1) != 0) {
 			if (mark == '\n' || mark == '\r') continue;
 			if (mark != ':')
 				return PARSER_ERR_INVALID_FILE;
 
 			char buffer[9];
-			buffer[8] = 0;
-			if (read(st->fd, &buffer, 8) != 8)
-				return PARSER_ERR_INVALID_FILE;
-
-			checksum = 0;
-			for(i = 0; i < 8; i += 2) {
-				if (sscanf(&buffer[i], "%2x", &c) != 1)
-					return PARSER_ERR_INVALID_FILE;
-				checksum += c;
-			}
-		
 			unsigned int reclen, address, type;
-			if (sscanf(buffer, "%2x%4x%2x", &reclen, &address, &type) != 3)
-				return PARSER_ERR_INVALID_FILE;
-
 			uint8_t *record;
-			if (type == 0) {
-				st->data = realloc(st->data, st->data_len + reclen);
-				record = &st->data[st->data_len];
-				st->data_len += reclen;
+
+			/* get the reclen, address, and type */
+			buffer[8] = 0;
+			if (read(fd, &buffer, 8) != 8) return PARSER_ERR_INVALID_FILE;
+			if (sscanf(buffer, "%2x%4x%2x", &reclen, &address, &type) != 3) {
+				close(fd);
+				return PARSER_ERR_INVALID_FILE;
+			}
+
+			/* setup the checksum */
+			checksum =
+				reclen +
+				((address & 0xFF00) >> 8) +
+				((address & 0x00FF) >> 0) +
+				type;
+
+			switch(type) {
+				/* data record */
+				case 0:
+					st->data = realloc(st->data, st->data_len + reclen);
+					record = &st->data[st->data_len];
+					st->data_len += reclen;
+					break;
+
+				/* extended segment address record */
+				case 2:
+					base = 0;
+					break;
+
+				/* extended linear address record */
+				case 4:
+					base = address;
+					break;
 			}
 
 			buffer[2] = 0;
 			for(i = 0; i < reclen; ++i) {
-				if (read(st->fd, &buffer, 2) != 2 || sscanf(buffer, "%2x", &c) != 1)
+				if (read(fd, &buffer, 2) != 2 || sscanf(buffer, "%2x", &c) != 1) {
+					close(fd);
 					return PARSER_ERR_INVALID_FILE;
+				}
+
+				/* add the byte to the checksum */
 				checksum += c;
-				if (type == 0)
-					record[i] = c;
+
+				switch(type) {
+					case 0:
+						record[i] = c;
+						break;
+
+					case 2:
+					case 4:
+						base = (base << 8) | c;
+						break;
+				}
 			}
 
+			/* read, scan, and verify the checksum */
 			if (
-				read(st->fd, &buffer, 2 ) != 2 ||
+				read(fd, &buffer, 2 ) != 2 ||
 				sscanf(buffer, "%2x", &c) != 1 ||
 				(uint8_t)(checksum + c) != 0x00
-			)	return PARSER_ERR_INVALID_FILE;		
-		}
-	}
+			) {
+				close(fd);
+				return PARSER_ERR_INVALID_FILE;
+			}
 
-	st->write = write;
-	return st->fd == -1 ? PARSER_ERR_SYSTEM : PARSER_ERR_OK;
+			switch(type) {
+				/* EOF */
+				case 1:
+					close(fd);
+					return PARSER_ERR_OK;
+
+				/* address record */
+				case 2: base = base << 4;
+				case 4:	base = be_u32(base);
+					if (st->base == 0) {
+						st->base = base;
+						break;
+					}
+
+					/* we cant cope with files out of order */
+					if (base < st->base) {
+						close(fd);
+						return PARSER_ERR_INVALID_FILE;
+					}
+
+					/* if there is a gap, enlarge and fill with zeros */
+					unsigned int len = base - st->base;
+					if (len > st->data_len) {
+						st->data = realloc(st->data, len);
+						memset(&st->data[st->data_len], 0, len - st->data_len);
+						st->data_len = len;
+					}
+					break;
+			}
+		}
+
+		close(fd);
+		return PARSER_ERR_OK;
+	}
 }
 
 parser_err_t hex_close(void *storage) {
 	hex_t *st = storage;
-
-	if (st->fd) close(st->fd);
+	if (st) free(st->data);
 	free(st);
 	return PARSER_ERR_OK;
 }
@@ -126,8 +181,6 @@ unsigned int hex_size(void *storage) {
 
 parser_err_t hex_read(void *storage, void *data, unsigned int *len) {
 	hex_t *st = storage;
-	if (st->write) return PARSER_ERR_WRONLY;
-
 	unsigned int left = st->data_len - st->offset;
 	unsigned int get  = left > *len ? *len : left;
 
@@ -139,20 +192,7 @@ parser_err_t hex_read(void *storage, void *data, unsigned int *len) {
 }
 
 parser_err_t hex_write(void *storage, void *data, unsigned int len) {
-	hex_t *st = storage;
-	if (!st->write) return PARSER_ERR_RDONLY;
-
-	ssize_t r;
-	while(len > 0) {
-		r = write(st->fd, data, len);
-		if (r < 1) return PARSER_ERR_SYSTEM;
-		st->stat.st_size += r;
-
-		len  -= r;
-		data += r;
-	}
-
-	return PARSER_ERR_OK;
+	return PARSER_ERR_RDONLY;
 }
 
 parser_t PARSER_HEX = {
