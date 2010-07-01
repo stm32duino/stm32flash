@@ -13,3 +13,6 @@ all:
 clean:
 	$(MAKE) -C parsers clean
 	rm -f stm32flash
+
+install: all
+	cp stm32flash /usr/local/bin
