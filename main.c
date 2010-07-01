@@ -104,8 +104,14 @@ int main(int argc, char* argv[]) {
 		}
 
 		fprintf(stdout, "Using Parser : %s\n", parser->name);
-	} else
+	} else {
 		parser = &PARSER_BINARY;
+		p_st = parser->init();
+		if (!p_st) {
+			fprintf(stderr, "%s Parser failed to initialize\n", parser->name);
+			goto close;
+		}
+	}
 
 	serial = serial_open(device);
 	if (!serial) {
