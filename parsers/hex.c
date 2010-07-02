@@ -49,6 +49,7 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 		uint8_t checksum;
 		unsigned int c;
 		uint32_t base = 0;
+		unsigned int last_address = 0x0;
 
 		fd = open(filename, O_RDONLY);
 		if (fd < 0)
@@ -83,7 +84,16 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 			switch(type) {
 				/* data record */
 				case 0:
-					st->data = realloc(st->data, st->data_len + reclen);
+					c = address - last_address;
+					st->data = realloc(st->data, st->data_len + c + reclen);
+
+					/* if there is a gap, zero it and increment the length */
+					if (c > 0) {
+						memset(&st->data[st->data_len], 0, c);
+						st->data_len += c;
+					}
+
+					last_address = address + reclen;
 					record = &st->data[st->data_len];
 					st->data_len += reclen;
 					break;
