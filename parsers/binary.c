@@ -42,7 +42,11 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 		st->fd = open(
 			filename,
 			O_WRONLY | O_CREAT | O_TRUNC,
+#ifndef __WIN32__
 			S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
+#else
+			0
+#endif
 		);
 		st->stat.st_size = 0;
 	} else {
