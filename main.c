@@ -46,6 +46,7 @@ char		*device		= NULL;
 serial_baud_t	baudRate	= SERIAL_BAUD_57600;
 int		rd	 	= 0;
 int		wr		= 0;
+int		npages		= 0xFF;
 char		verify		= 0;
 int		retry		= 10;
 char		exec_flag	= 0;
@@ -192,7 +193,7 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		stm32_erase_memory(stm);
+		stm32_erase_memory(stm, npages);
 
 		addr = stm->dev->fl_start;
 		fprintf(stdout, "\x1B[s");
@@ -286,7 +287,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:vn:g:fch")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fch")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -307,6 +308,13 @@ int parse_options(int argc, char *argv[]) {
 					return 1;
 				}
 				filename = optarg;
+				break;
+			case 'e':
+				npages = strtoul(optarg, NULL, 0);
+				if (npages > 0xFF || npages < 0) {
+					fprintf(stderr, "ERROR: You need to specify a page count between 0 and 255");
+					return 1;
+				}
 				break;
 
 			case 'v':
@@ -366,6 +374,7 @@ void show_help(char *name) {
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
+		"	-e n		Only erase n pages before writing the flash\n"
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"
 		"	-g address	Start execution at specified address (0 = flash start)\n"

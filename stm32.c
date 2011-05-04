@@ -251,10 +251,22 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 	return stm32_read_byte(stm) == STM32_ACK;
 }
 
-char stm32_erase_memory(const stm32_t *stm) {
+char stm32_erase_memory(const stm32_t *stm, uint8_t pages) {
 	if (!stm32_send_command(stm, stm->cmd->er)) return 0;
-	if (!stm32_send_command(stm, 0xFF        )) return 0;
-	return 1;
+	if (pages == 0xFF) {
+		return stm32_send_command(stm, 0xFF);
+	} else {
+		uint8_t cs = 0;
+		uint8_t pg_num;
+		stm32_send_byte(stm, pages);
+		cs ^= pages;
+		for (pg_num = 0; pg_num <= pages; pg_num++) {
+			stm32_send_byte(stm, pg_num);
+			cs ^= pg_num;
+		}
+		stm32_send_byte(stm, cs);
+		return stm32_read_byte(stm) == STM32_ACK;
+	}
 }
 
 char stm32_go(const stm32_t *stm, uint32_t address) {
