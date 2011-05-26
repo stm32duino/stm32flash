@@ -1,6 +1,7 @@
 /*
   stm32flash - Open Source ST STM32 flash program for *nix
   Copyright (C) 2010 Geoffrey McRae <geoff@spacevs.com>
+..Copyright (C) 2011 Steve Markgraf <steve@steve-m.de>
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -46,6 +47,7 @@ char		*device		= NULL;
 serial_baud_t	baudRate	= SERIAL_BAUD_57600;
 int		rd	 	= 0;
 int		wr		= 0;
+int		wu		= 0;
 int		npages		= 0xFF;
 char		verify		= 0;
 int		retry		= 10;
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
 			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
 			if (!stm32_read_memory(stm, addr, buffer, len)) {
-				fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
+				fprintf(stderr, "Failed to read memory at address 0x%08x, target write-protected?\n", addr);
 				goto close;
 			}
 			assert(parser->write(p_st, buffer, len) == PARSER_ERR_OK);
@@ -180,8 +182,15 @@ int main(int argc, char* argv[]) {
 		fprintf(stdout,	"Done.\n");
 		ret = 0;
 		goto close;
-	} else
-	if (wr) {
+
+	} else if (wu) {
+		fprintf(stdout, "Write-unprotecting flash\n");
+		/* the device automatically performs a reset after the sending the ACK */
+		reset_flag = 0;
+		stm32_wunprot_memory(stm);
+		fprintf(stdout,	"Done.\n");
+
+	} else if (wr) {
 		printf("\n");
 
 		off_t 	offset = 0;
@@ -287,7 +296,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fch")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:fchu")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -316,7 +325,13 @@ int parse_options(int argc, char *argv[]) {
 					return 1;
 				}
 				break;
-
+			case 'u':
+				wu = 1;
+				if (rd || wr) {
+					fprintf(stderr, "ERROR: Invalid options, can't write unprotect and read/write at the same time\n");
+					return 1;
+				}
+				break;
 			case 'v':
 				verify = 1;
 				break;
@@ -374,6 +389,7 @@ void show_help(char *name) {
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file\n"
 		"	-w filename	Write flash to file\n"
+		"	-u		Disable the flash write-protection\n"
 		"	-e n		Only erase n pages before writing the flash\n"
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"

@@ -251,6 +251,12 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 	return stm32_read_byte(stm) == STM32_ACK;
 }
 
+char stm32_wunprot_memory(const stm32_t *stm) {
+	if (!stm32_send_command(stm, stm->cmd->uw)) return 0;
+	if (!stm32_send_command(stm, 0x8C        )) return 0;
+	return 1;
+}
+
 char stm32_erase_memory(const stm32_t *stm, uint8_t pages) {
 	if (!stm32_send_command(stm, stm->cmd->er)) return 0;
 	if (pages == 0xFF) {

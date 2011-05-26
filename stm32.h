@@ -49,13 +49,14 @@ struct stm32_dev {
 	uint32_t	mem_start, mem_end;
 };
 
-stm32_t* stm32_init    (const serial_t *serial, const char init);
-void stm32_close       (stm32_t *stm);
-char stm32_read_memory (const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
-char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
-char stm32_erase_memory(const stm32_t *stm, uint8_t pages);
-char stm32_go          (const stm32_t *stm, uint32_t address);
-char stm32_reset_device(const stm32_t *stm);
+stm32_t* stm32_init      (const serial_t *serial, const char init);
+void stm32_close         (stm32_t *stm);
+char stm32_read_memory   (const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
+char stm32_write_memory  (const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
+char stm32_wunprot_memory(const stm32_t *stm);
+char stm32_erase_memory  (const stm32_t *stm, uint8_t pages);
+char stm32_go            (const stm32_t *stm, uint32_t address);
+char stm32_reset_device  (const stm32_t *stm);
 
 #endif
 
