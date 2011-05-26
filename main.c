@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
 	parser_err_t perr;
 
 	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
-	if ((ret = parse_options(argc, argv)) != 0)
+	if (parse_options(argc, argv) != 0)
 		goto close;
 
 	if (wr) {

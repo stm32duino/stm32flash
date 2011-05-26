@@ -150,6 +150,9 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 				/* address record */
 				case 2: base = base << 4;
 				case 4:	base = be_u32(base);
+					/* Reset last_address since our base changed */
+					last_address = 0;
+
 					if (st->base == 0) {
 						st->base = base;
 						break;
