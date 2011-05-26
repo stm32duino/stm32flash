@@ -87,9 +87,9 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 					c = address - last_address;
 					st->data = realloc(st->data, st->data_len + c + reclen);
 
-					/* if there is a gap, zero it and increment the length */
+					/* if there is a gap, set it to 0xff and increment the length */
 					if (c > 0) {
-						memset(&st->data[st->data_len], 0, c);
+						memset(&st->data[st->data_len], 0xff, c);
 						st->data_len += c;
 					}
 
