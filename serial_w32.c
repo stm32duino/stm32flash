@@ -47,6 +47,15 @@ serial_t* serial_open(const char *device)
 
 	COMMTIMEOUTS timeouts = {MAXDWORD, MAXDWORD, 3000, 0, 0};
 
+	/* Fix the device name if required */
+	char *devName;
+	if (strlen(device) > 4 && device[0] != '\\') {
+		devName = calloc(1, strlen(device) + 5);
+		sprintf(devName, "\\\\.\\%s", device);
+	} else {
+		devName = device;
+	}
+
 	/* Create file handle for port */
 	h->fd = CreateFile(device, GENERIC_READ | GENERIC_WRITE, 
 			0, /* Exclusive access */
@@ -54,6 +63,9 @@ serial_t* serial_open(const char *device)
 			OPEN_EXISTING,
 			0, //FILE_FLAG_OVERLAPPED,
 			NULL);
+
+	if (devName != device)
+		free(devName);
 	
 	if(h->fd == INVALID_HANDLE_VALUE) 
 		return NULL;
