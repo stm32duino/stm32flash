@@ -179,6 +179,11 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	while(stm->dev->id != 0x00 && stm->dev->id != stm->pid)
 		++stm->dev;
 
+	if (!stm) {
+		fprintf(stderr, "Unknown/unsupported device (Device ID: 0x%03x)\n", stm->dev->id);
+		stm32_close(stm);
+	}
+
 	return stm;
 }
 
