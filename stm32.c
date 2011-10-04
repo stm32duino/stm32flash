@@ -264,16 +264,16 @@ char stm32_wunprot_memory(const stm32_t *stm) {
 	return 1;
 }
 
-char stm32_erase_memory(const stm32_t *stm, uint8_t pages) {
+char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 	if (!stm32_send_command(stm, stm->cmd->er)) return 0;
 	if (pages == 0xFF) {
 		return stm32_send_command(stm, 0xFF);
 	} else {
 		uint8_t cs = 0;
 		uint8_t pg_num;
-		stm32_send_byte(stm, pages);
-		cs ^= pages;
-		for (pg_num = 0; pg_num <= pages; pg_num++) {
+		stm32_send_byte(stm, pages-1);
+		cs ^= (pages-1);
+		for (pg_num = spage; pg_num < (pages + spage); pg_num++) {
 			stm32_send_byte(stm, pg_num);
 			cs ^= pg_num;
 		}
