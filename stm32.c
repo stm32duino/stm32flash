@@ -28,6 +28,7 @@
 #define STM32_NACK	0x1F
 #define STM32_CMD_INIT	0x7F
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
+#define STM32_CMD_EE	0x44	/* extended erase */
 
 struct stm32_cmd {
 	uint8_t get;
@@ -37,7 +38,6 @@ struct stm32_cmd {
 	uint8_t go;
 	uint8_t wm;
 	uint8_t er; /* this may be extended erase */
-//      uint8_t ee;
 	uint8_t wp;
 	uint8_t uw;
 	uint8_t rp;
@@ -180,9 +180,10 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	while(stm->dev->id != 0x00 && stm->dev->id != stm->pid)
 		++stm->dev;
 
-	if (!stm) {
-		fprintf(stderr, "Unknown/unsupported device (Device ID: 0x%03x)\n", stm->dev->id);
+	if (!stm->dev->id) {
+		fprintf(stderr, "Unknown/unsupported device (Device ID: 0x%03x)\n", stm->pid);
 		stm32_close(stm);
+		return NULL;
 	}
 
 	return stm;
@@ -265,7 +266,57 @@ char stm32_wunprot_memory(const stm32_t *stm) {
 }
 
 char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
-	if (!stm32_send_command(stm, stm->cmd->er)) return 0;
+	if (!stm32_send_command(stm, stm->cmd->er)) {
+		fprintf(stderr, "Can't initiate chip erase!\n");
+		return 0;
+	}
+
+	/* The erase command reported by the bootloader is either 0x43 or 0x44 */
+	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
+	if (stm->cmd->er == STM32_CMD_EE) {
+ 		/* Not all chips using Extended Erase support mass erase */
+ 		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
+ 		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
+ 		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
+		if (stm->pid == 0x416 && pages == 0xFF) pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
+
+		if (pages == 0xFF) {
+			stm32_send_byte(stm, 0xFF);
+			stm32_send_byte(stm, 0xFF); // 0xFFFF the magic number for mass erase
+			stm32_send_byte(stm, 0x00); // 0x00 the XOR of those two bytes as a checksum
+			if (stm32_read_byte(stm) != STM32_ACK) {
+				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
+				return 0;
+			}
+			return 1;
+		}
+
+		uint16_t pg_num;
+		uint8_t pg_byte;
+ 		uint8_t cs = 0;
+ 
+ 		stm32_send_byte(stm, pages >> 8); // Number of pages to be erased, two bytes, MSB first
+ 		stm32_send_byte(stm, pages & 0xFF);
+ 
+ 		for (pg_num = 0; pg_num <= pages; pg_num++) {
+ 			pg_byte = pg_num >> 8;
+ 			cs ^= pg_byte;
+ 			stm32_send_byte(stm, pg_byte);
+ 			pg_byte = pg_num & 0xFF;
+ 			cs ^= pg_byte;
+ 			stm32_send_byte(stm, pg_byte);
+ 		}
+ 		stm32_send_byte(stm, 0x00);  // Ought to need to hand over a valid checksum here...but 0 seems to work!
+ 	
+ 		if (stm32_read_byte(stm) != STM32_ACK) {
+ 			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
+			return 0;
+ 		}
+
+ 		return 1;
+	}
+
+	/* And now the regular erase (0x43) for all other chips */
 	if (pages == 0xFF) {
 		return stm32_send_command(stm, 0xFF);
 	} else {

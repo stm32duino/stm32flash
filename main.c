@@ -203,7 +203,10 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		stm32_erase_memory(stm, spage, npages);
+		if (!stm32_erase_memory(stm, spage, npages)) {
+			fprintf(stderr, "Failed to erase memory\n");
+			goto close;
+		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
 		fprintf(stdout, "\x1B[s");
