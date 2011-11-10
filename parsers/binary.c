@@ -41,7 +41,11 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 	if (write) {
 		st->fd = open(
 			filename,
+#ifndef __WIN32__
 			O_WRONLY | O_CREAT | O_TRUNC,
+#else
+			O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
+#endif
 #ifndef __WIN32__
 			S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
 #else
@@ -52,7 +56,14 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 	} else {
 		if (stat(filename, &st->stat) != 0)
 			return PARSER_ERR_INVALID_FILE;
-		st->fd = open(filename, O_RDONLY);
+		st->fd = open(
+			filename,
+#ifndef __WIN32__
+			O_RDONLY
+#else
+			O_RDONLY | O_BINARY
+#endif
+		);
 	}
 
 	st->write = write;
