@@ -30,6 +30,14 @@ serial_baud_t serial_get_baud(const unsigned int baud) {
 		case  38400: return SERIAL_BAUD_38400 ;
 		case  57600: return SERIAL_BAUD_57600 ;
 		case 115200: return SERIAL_BAUD_115200;
+		case 230400: return SERIAL_BAUD_230400;
+		case 460800: return SERIAL_BAUD_460800;
+		case 500000: return SERIAL_BAUD_500000;
+		case 576000: return SERIAL_BAUD_576000;
+		case 921600: return SERIAL_BAUD_921600;
+		case 1000000: return SERIAL_BAUD_1000000;
+		case 1500000: return SERIAL_BAUD_1500000;
+		case 2000000: return SERIAL_BAUD_2000000;
 
 		default:
 			return SERIAL_BAUD_INVALID;
@@ -47,6 +55,14 @@ const unsigned int serial_get_baud_int(const serial_baud_t baud) {
 		case SERIAL_BAUD_38400 : return 38400 ;
 		case SERIAL_BAUD_57600 : return 57600 ;
 		case SERIAL_BAUD_115200: return 115200;
+		case SERIAL_BAUD_230400: return 230400;
+		case SERIAL_BAUD_460800: return 460800;
+		case SERIAL_BAUD_500000: return 500000;
+		case SERIAL_BAUD_576000: return 576000;
+		case SERIAL_BAUD_921600: return 921600;
+		case SERIAL_BAUD_1000000: return 1000000;
+		case SERIAL_BAUD_1500000: return 1500000;
+		case SERIAL_BAUD_2000000: return 2000000;
 
 		case SERIAL_BAUD_INVALID:
 		default:

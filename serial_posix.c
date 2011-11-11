@@ -87,6 +87,16 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 		case SERIAL_BAUD_38400 : port_baud = B38400 ; break;
 		case SERIAL_BAUD_57600 : port_baud = B57600 ; break;
 		case SERIAL_BAUD_115200: port_baud = B115200; break;
+		case SERIAL_BAUD_230400: port_baud = B230400; break;
+ 		case SERIAL_BAUD_460800: port_baud = B460800; break;
+		case SERIAL_BAUD_921600: port_baud = B921600; break;
+#ifdef __GNUC__
+		case SERIAL_BAUD_500000: port_baud = B500000; break;
+		case SERIAL_BAUD_576000: port_baud = B576000; break;
+		case SERIAL_BAUD_1000000: port_baud = B1000000; break;
+		case SERIAL_BAUD_1500000: port_baud = B1500000; break;
+		case SERIAL_BAUD_2000000: port_baud = B2000000; break;
+#endif /* __GNUC__ */
 
 		case SERIAL_BAUD_INVALID:
 		default:
