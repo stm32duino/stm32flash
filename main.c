@@ -30,7 +30,7 @@
 #include "utils.h"
 #include "serial.h"
 #include "stm32.h"
-#include "parser.h"
+#include "parsers/parser.h"
 
 #include "parsers/binary.h"
 #include "parsers/hex.h"
