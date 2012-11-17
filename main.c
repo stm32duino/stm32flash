@@ -66,8 +66,9 @@ void show_help(char *name);
 int main(int argc, char* argv[]) {
 	int ret = 1;
 	parser_err_t perr;
+	FILE *diag = stdout;
 
-	printf("stm32flash - http://stm32flash.googlecode.com/\n\n");
+	fprintf(diag, "stm32flash - http://stm32flash.googlecode.com/\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
 
@@ -107,7 +108,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		fprintf(stdout, "Using Parser : %s\n", parser->name);
+		fprintf(diag, "Using Parser : %s\n", parser->name);
 	} else {
 		parser = &PARSER_BINARY;
 		p_st = parser->init();
@@ -134,17 +135,17 @@ int main(int argc, char* argv[]) {
 		goto close;
 	}
 
-	printf("Serial Config: %s\n", serial_get_setup_str(serial));
+	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
 	if (!(stm = stm32_init(serial, init_flag))) goto close;
 
-	printf("Version      : 0x%02x\n", stm->bl_version);
-	printf("Option 1     : 0x%02x\n", stm->option1);
-	printf("Option 2     : 0x%02x\n", stm->option2);
-	printf("Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
-	printf("RAM          : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
-	printf("Flash        : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
-	printf("Option RAM   : %db\n", stm->dev->opt_end - stm->dev->opt_start);
-	printf("System RAM   : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
+	fprintf(diag, "Version      : 0x%02x\n", stm->bl_version);
+	fprintf(diag, "Option 1     : 0x%02x\n", stm->option1);
+	fprintf(diag, "Option 2     : 0x%02x\n", stm->option2);
+	fprintf(diag, "Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
+	fprintf(diag, "RAM          : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
+	fprintf(diag, "Flash        : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
+	fprintf(diag, "Option RAM   : %db\n", stm->dev->opt_end - stm->dev->opt_start);
+	fprintf(diag, "System RAM   : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 
 	uint8_t		buffer[256];
 	uint32_t	addr;
@@ -152,7 +153,7 @@ int main(int argc, char* argv[]) {
 	int		failed = 0;
 
 	if (rd) {
-		printf("\n");
+		fprintf(diag, "\n");
 
 		if ((perr = parser->open(p_st, filename, 1)) != PARSER_ERR_OK) {
 			fprintf(stderr, "%s ERROR: %s\n", parser->name, parser_errstr(perr));
@@ -161,8 +162,8 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-		fprintf(stdout, "\x1B[s");
-		fflush(stdout);
+		fprintf(diag, "\x1B[s");
+		fflush(diag);
 		while(addr < stm->dev->fl_end) {
 			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
@@ -173,26 +174,26 @@ int main(int argc, char* argv[]) {
 			assert(parser->write(p_st, buffer, len) == PARSER_ERR_OK);
 			addr += len;
 
-			fprintf(stdout,
+			fprintf(diag,
 				"\x1B[uRead address 0x%08x (%.2f%%) ",
 				addr,
 				(100.0f / (float)(stm->dev->fl_end - stm->dev->fl_start)) * (float)(addr - stm->dev->fl_start)
 			);
-			fflush(stdout);
+			fflush(diag);
 		}
-		fprintf(stdout,	"Done.\n");
+		fprintf(diag,	"Done.\n");
 		ret = 0;
 		goto close;
 
 	} else if (wu) {
-		fprintf(stdout, "Write-unprotecting flash\n");
+		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_wunprot_memory(stm);
-		fprintf(stdout,	"Done.\n");
+		fprintf(diag,	"Done.\n");
 
 	} else if (wr) {
-		printf("\n");
+		fprintf(diag, "\n");
 
 		off_t 	offset = 0;
 		ssize_t r;
@@ -209,8 +210,8 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-		fprintf(stdout, "\x1B[s");
-		fflush(stdout);
+		fprintf(diag, "\x1B[s");
+		fflush(diag);
 		while(addr < stm->dev->fl_end && offset < size) {
 			uint32_t left	= stm->dev->fl_end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
@@ -252,17 +253,17 @@ int main(int argc, char* argv[]) {
 			addr	+= len;
 			offset	+= len;
 
-			fprintf(stdout,
+			fprintf(diag,
 				"\x1B[uWrote %saddress 0x%08x (%.2f%%) ",
 				verify ? "and verified " : "",
 				addr,
 				(100.0f / size) * offset
 			);
-			fflush(stdout);
+			fflush(diag);
 
 		}
 
-		fprintf(stdout,	"Done.\n");
+		fprintf(diag,	"Done.\n");
 		ret = 0;
 		goto close;
 	} else
@@ -273,28 +274,28 @@ close:
 		if (execute == 0)
 			execute = stm->dev->fl_start;
 
-		fprintf(stdout, "\nStarting execution at address 0x%08x... ", execute);
-		fflush(stdout);
+		fprintf(diag, "\nStarting execution at address 0x%08x... ", execute);
+		fflush(diag);
 		if (stm32_go(stm, execute)) {
 			reset_flag = 0;
-			fprintf(stdout, "done.\n");
+			fprintf(diag, "done.\n");
 		} else
-			fprintf(stdout, "failed.\n");
+			fprintf(diag, "failed.\n");
 	}
 
 	if (stm && reset_flag) {
-		fprintf(stdout, "\nResetting device... ");
-		fflush(stdout);
+		fprintf(diag, "\nResetting device... ");
+		fflush(diag);
 		if (stm32_reset_device(stm))
-			fprintf(stdout, "done.\n");
-		else	fprintf(stdout, "failed.\n");
+			fprintf(diag, "done.\n");
+		else	fprintf(diag, "failed.\n");
 	}
 
 	if (p_st  ) parser->close(p_st);
 	if (stm   ) stm32_close  (stm);
 	if (serial) serial_close (serial);
 
-	printf("\n");
+	fprintf(diag, "\n");
 	return ret;
 }
 
