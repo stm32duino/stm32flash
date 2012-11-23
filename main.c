@@ -72,6 +72,10 @@ int main(int argc, char* argv[]) {
 	if (parse_options(argc, argv) != 0)
 		goto close;
 
+	if (rd && filename[0] == '-') {
+		diag = stderr;
+	}
+
 	if (wr) {
 		/* first try hex */
 		if (!force_binary) {
@@ -322,6 +326,9 @@ int parse_options(int argc, char *argv[]) {
 					return 1;
 				}
 				filename = optarg;
+				if (filename[0] == '-') {
+					force_binary = 1;
+				}
 				break;
 			case 'e':
 				npages = strtoul(optarg, NULL, 0);
@@ -395,7 +402,7 @@ void show_help(char *name) {
 	fprintf(stderr,
 		"Usage: %s [-bvngfhc] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
-		"	-r filename	Read flash to file\n"
+		"	-r filename	Read flash to file (or - stdout)\n"
 		"	-w filename	Write file to flash\n"
 		"	-u		Disable the flash write-protection\n"
 		"	-e n		Only erase n pages before writing the flash\n"

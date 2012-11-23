@@ -39,19 +39,22 @@ void* binary_init() {
 parser_err_t binary_open(void *storage, const char *filename, const char write) {
 	binary_t *st = storage;
 	if (write) {
-		st->fd = open(
-			filename,
+		if (filename[0] == '-')
+			st->fd = 1;
+		else
+			st->fd = open(
+				filename,
 #ifndef __WIN32__
-			O_WRONLY | O_CREAT | O_TRUNC,
+				O_WRONLY | O_CREAT | O_TRUNC,
 #else
-			O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
+				O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
 #endif
 #ifndef __WIN32__
-			S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
+				S_IRUSR  | S_IWUSR | S_IRGRP | S_IROTH
 #else
-			0
+				0
 #endif
-		);
+			);
 		st->stat.st_size = 0;
 	} else {
 		if (stat(filename, &st->stat) != 0)
