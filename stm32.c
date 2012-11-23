@@ -208,7 +208,9 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	cs      = stm32_gen_cs(address);
 
 	if (!stm32_send_command(stm, stm->cmd->rm)) return 0;
-	assert(serial_write(stm->serial, &address, 4) == SERIAL_ERR_OK);
+	if (serial_write(stm->serial, &address, 4) != SERIAL_ERR_OK)
+		return 0;
+
 	stm32_send_byte(stm, cs);
 	if (stm32_read_byte(stm) != STM32_ACK) return 0;
 
@@ -217,7 +219,9 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	stm32_send_byte(stm, i ^ 0xFF);
 	if (stm32_read_byte(stm) != STM32_ACK) return 0;
 
-	assert(serial_read(stm->serial, data, len) == SERIAL_ERR_OK);
+	if (serial_read(stm->serial, data, len) != SERIAL_ERR_OK)
+		return 0;
+
 	return 1;
 }
 
@@ -235,7 +239,9 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 
 	/* send the address and checksum */
 	if (!stm32_send_command(stm, stm->cmd->wm)) return 0;
-	assert(serial_write(stm->serial, &address, 4) == SERIAL_ERR_OK);
+	if (serial_write(stm->serial, &address, 4) != SERIAL_ERR_OK)
+		return 0;
+
 	stm32_send_byte(stm, cs);
 	if (stm32_read_byte(stm) != STM32_ACK) return 0;
 
@@ -248,7 +254,8 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], un
 	for(i = 0; i < len; ++i)
 		cs ^= data[i];
 
-	assert(serial_write(stm->serial, data, len) == SERIAL_ERR_OK);
+	if (serial_write(stm->serial, data, len) != SERIAL_ERR_OK)
+		return 0;
 
 	/* write the alignment padding */
 	for(c = 0; c < extra; ++c) {

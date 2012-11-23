@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
 
 #include "utils.h"
 #include "serial.h"
@@ -175,7 +174,11 @@ int main(int argc, char* argv[]) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x, target write-protected?\n", addr);
 				goto close;
 			}
-			assert(parser->write(p_st, buffer, len) == PARSER_ERR_OK);
+			if (parser->write(p_st, buffer, len) != PARSER_ERR_OK)
+			{
+				fprintf(stderr, "Failed to write data to file\n");
+				goto close;
+			}
 			addr += len;
 
 			fprintf(diag,
