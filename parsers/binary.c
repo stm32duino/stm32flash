@@ -57,16 +57,19 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 			);
 		st->stat.st_size = 0;
 	} else {
-		if (stat(filename, &st->stat) != 0)
-			return PARSER_ERR_INVALID_FILE;
-		st->fd = open(
-			filename,
+		if (filename[0] == '-') {
+			st->fd = 0;
+		} else {
+			if (stat(filename, &st->stat) != 0)
+				return PARSER_ERR_INVALID_FILE;
+			st->fd = open(filename,
 #ifndef __WIN32__
-			O_RDONLY
+				O_RDONLY
 #else
-			O_RDONLY | O_BINARY
+				O_RDONLY | O_BINARY
 #endif
-		);
+			);
+		}
 	}
 
 	st->write = write;
@@ -94,7 +97,12 @@ parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 	ssize_t r;
 	while(left > 0) {
 		r = read(st->fd, data, left);
-		if (r < 0) return PARSER_ERR_SYSTEM;
+		/* If there is no data to read at all, return OK, but with zero read */
+		if (r == 0 && left == *len) {
+			*len = 0;
+			return PARSER_ERR_OK;
+		}
+		if (r <= 0) return PARSER_ERR_SYSTEM;
 		left -= r;
 		data += r;
 	}

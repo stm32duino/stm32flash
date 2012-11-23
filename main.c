@@ -201,7 +201,13 @@ int main(int argc, char* argv[]) {
 
 		off_t 	offset = 0;
 		ssize_t r;
-		unsigned int size = parser->size(p_st);
+		unsigned int size;
+
+		/* Assume data from stdin is whole device */
+		if (filename[0] == '-')
+			size = stm->dev->fl_end - stm->dev->fl_start;
+		else
+			size = parser->size(p_st);
 
 		if (size > stm->dev->fl_end - stm->dev->fl_start) {
 			fprintf(stderr, "File provided larger then available flash space.\n");
@@ -223,6 +229,15 @@ int main(int argc, char* argv[]) {
 
 			if (parser->read(p_st, buffer, &len) != PARSER_ERR_OK)
 				goto close;
+
+			if (len == 0) {
+				if (filename[0] == '-') {
+					break;
+				} else {
+					fprintf(stderr, "Failed to read input file\n");
+					goto close;
+				}
+			}
 	
 			again:
 			if (!stm32_write_memory(stm, addr, buffer, len)) {
@@ -403,7 +418,7 @@ void show_help(char *name) {
 		"Usage: %s [-bvngfhc] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-r filename	Read flash to file (or - stdout)\n"
-		"	-w filename	Write file to flash\n"
+		"	-w filename	Write flash from file (or - stdout)\n"
 		"	-u		Disable the flash write-protection\n"
 		"	-e n		Only erase n pages before writing the flash\n"
 		"	-v		Verify writes\n"
