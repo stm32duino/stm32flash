@@ -169,7 +169,6 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-		fprintf(diag, "\x1B[s");
 		fflush(diag);
 		while(addr < stm->dev->fl_end) {
 			uint32_t left	= stm->dev->fl_end - addr;
@@ -186,7 +185,7 @@ int main(int argc, char* argv[]) {
 			addr += len;
 
 			fprintf(diag,
-				"\x1B[uRead address 0x%08x (%.2f%%) ",
+				"\rRead address 0x%08x (%.2f%%) ",
 				addr,
 				(100.0f / (float)(stm->dev->fl_end - stm->dev->fl_start)) * (float)(addr - stm->dev->fl_start)
 			);
@@ -247,7 +246,6 @@ int main(int argc, char* argv[]) {
 		}
 
 		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-		fprintf(diag, "\x1B[s");
 		fflush(diag);
 		while(addr < stm->dev->fl_end && offset < size) {
 			uint32_t left	= stm->dev->fl_end - addr;
@@ -300,7 +298,7 @@ int main(int argc, char* argv[]) {
 			offset	+= len;
 
 			fprintf(diag,
-				"\x1B[uWrote %saddress 0x%08x (%.2f%%) ",
+				"\rWrote %saddress 0x%08x (%.2f%%) ",
 				verify ? "and verified " : "",
 				addr,
 				(100.0f / size) * offset
