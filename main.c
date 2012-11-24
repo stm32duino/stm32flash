@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
 	fprintf(diag, "Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
 	fprintf(diag, "- RAM        : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
 	fprintf(diag, "- Flash      : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
-	fprintf(diag, "- Option RAM : %db\n", stm->dev->opt_end - stm->dev->opt_start);
+	fprintf(diag, "- Option RAM : %db\n", stm->dev->opt_end - stm->dev->opt_start + 1);
 	fprintf(diag, "- System RAM : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 
 	uint8_t		buffer[256];

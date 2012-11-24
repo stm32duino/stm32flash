@@ -60,7 +60,10 @@ static const uint8_t stm_reset_code[] = {
 
 static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
-/* device table */
+/* Device table, corresponds to the "Bootloader device-dependant parameters"
+ * table in ST document AN2606.
+ * Note that the option bytes upper range is inclusive!
+ */
 const stm32_dev_t devices[] = {
 	{0x412, "Low-density"       , 0x20000200, 0x20002800, 0x08000000, 0x08008000,  4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
 	{0x410, "Medium-density"    , 0x20000200, 0x20005000, 0x08000000, 0x08020000,  4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
