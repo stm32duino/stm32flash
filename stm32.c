@@ -175,12 +175,19 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 		return NULL;
 	}
 	len = stm32_read_byte(stm) + 1;
-	if (len != 2) {
+	if (len < 2) {
 		stm32_close(stm);
-		fprintf(stderr, "More then two bytes sent in the PID, unknown/unsupported device\n");
+		fprintf(stderr, "Only %d bytes sent in the PID, unknown/unsupported device\n", len);
 		return NULL;
 	}
 	stm->pid = (stm32_read_byte(stm) << 8) | stm32_read_byte(stm);
+	len -= 2;
+	if (len > 0) {
+		fprintf(stderr, "This bootloader returns %d extra bytes in PID:", len);
+		while (len-- > 0)
+			fprintf(stderr, " %02x", stm32_read_byte(stm));
+		fprintf(stderr, "\n");
+	}
 	if (stm32_read_byte(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
