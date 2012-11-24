@@ -67,8 +67,11 @@ serial_t* serial_open(const char *device)
 	if (devName != device)
 		free(devName);
 	
-	if(h->fd == INVALID_HANDLE_VALUE) 
+	if (h->fd == INVALID_HANDLE_VALUE) {
+		if (GetLastError() == ERROR_FILE_NOT_FOUND)
+			fprintf(stderr, "File not found: %s\n", device);
 		return NULL;
+	}
 
 	SetupComm(h->fd, 4096, 4096); /* Set input and output buffer size */
 
