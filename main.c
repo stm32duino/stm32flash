@@ -49,6 +49,7 @@ int		wr		= 0;
 int		wu		= 0;
 int		rp		= 0;
 int		ur		= 0;
+int		eraseOnly	= 0;
 int		npages		= 0xFF;
 int             spage           = 0;
 char		verify		= 0;
@@ -206,6 +207,15 @@ int main(int argc, char* argv[]) {
 		reset_flag = 0;
 		stm32_runprot_memory(stm);
 		fprintf(stdout,	"Done.\n");
+	} else if (eraseOnly) {
+		ret = 0;
+		fprintf(stdout, "Erasing flash\n");
+		if (!stm32_erase_memory(stm, spage, npages)) {
+			fprintf(stderr, "Failed to erase memory\n");
+			ret = 1;
+			goto close;
+		}
+		
 	} else if (wu) {
 		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
@@ -337,7 +347,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:jkfchus:")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:jkfchuos:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -393,6 +403,14 @@ int parse_options(int argc, char *argv[]) {
 				}
 				break;
 
+			case 'o':
+				eraseOnly = 1;
+				if (rd || wr) {
+					fprintf(stderr, "ERROR: Invalid options, can't erase-only and read/write at the same time\n");
+					return 1;
+				}
+				break;				
+			
 			case 'v':
 				verify = 1;
 				break;
@@ -456,6 +474,7 @@ void show_help(char *name) {
 		"	-u		Disable the flash write-protection\n"
 		"	-j		Enable the flash read-protection\n"
 		"	-k		Disable the flash read-protection\n"
+		"	-o		Erase only\n"
 		"	-e n		Only erase n pages before writing the flash\n"
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"
