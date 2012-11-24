@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "stm32.h"
 #include "utils.h"
@@ -43,6 +44,21 @@ struct stm32_cmd {
 	uint8_t rp;
 	uint8_t ur;
 };
+
+/* Reset code for ARMv7-M (Cortex-M3) and ARMv6-M (Cortex-M0)
+ * see ARMv7-M or ARMv6-M Architecture Reference Manual (table B3-8)
+ * or "The definitive guide to the ARM Cortex-M3", section 14.4.
+ */
+static const uint8_t stm_reset_code[] = {
+	0x01, 0x49,		// ldr     r1, [pc, #4] ; (<AIRCR_OFFSET>)
+	0x02, 0x4A,		// ldr     r2, [pc, #8] ; (<AIRCR_RESET_VALUE>)
+	0x0A, 0x60,		// str     r2, [r1, #0]
+	0xfe, 0xe7,		// endless: b endless
+	0x0c, 0xed, 0x00, 0xe0,	// .word 0xe000ed0c <AIRCR_OFFSET> = NVIC AIRCR register address
+	0x04, 0x00, 0xfa, 0x05	// .word 0x05fa0004 <AIRCR_RESET_VALUE> = VECTKEY | SYSRESETREQ
+};
+
+static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 /* device table */
 const stm32_dev_t devices[] = {
@@ -73,9 +89,6 @@ void    stm32_send_byte(const stm32_t *stm, uint8_t byte);
 uint8_t stm32_read_byte(const stm32_t *stm);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
-/* stm32 programs */
-extern unsigned int	stmreset_length;
-extern unsigned char	stmreset_binary[];
 
 uint8_t stm32_gen_cs(const uint32_t v) {
 	return  ((v & 0xFF000000) >> 24) ^
@@ -381,6 +394,39 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 	}
 }
 
+char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8_t *code, uint32_t code_size)
+{
+	uint32_t stack_le = le_u32(0x20002000);
+	uint32_t code_address_le = le_u32(target_address + 8);
+	uint32_t length = code_size + 8;
+	
+	uint8_t *mem = malloc(length);
+	if (!mem)
+		return 0;
+	
+	memcpy(mem, &stack_le, sizeof(uint32_t));
+	memcpy(mem + 4, &code_address_le, sizeof(uint32_t));
+	memcpy(mem + 8, code, code_size);
+	
+	uint8_t *pos = mem;
+	uint32_t address = target_address;
+	while(length > 0) {
+		
+		uint32_t w = length > 256 ? 256 : length;
+		if (!stm32_write_memory(stm, address, pos, w)) {
+			free(mem);
+			return 0;
+		}
+		
+		address += w;
+		pos += w;
+		length -=w;
+	}
+	
+	free(mem);
+	return stm32_go(stm, target_address);
+}
+
 char stm32_go(const stm32_t *stm, uint32_t address) {
 	uint8_t cs;
 
@@ -395,25 +441,8 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 }
 
 char stm32_reset_device(const stm32_t *stm) {
-	/*
-		since the bootloader does not have a reset command, we
-		upload the stmreset program into ram and run it, which
-		resets the device for us
-	*/
-
-	uint32_t length		= stmreset_length;
-	unsigned char* pos	= stmreset_binary;
-	uint32_t address	= stm->dev->ram_start;
-	while(length > 0) {
-		uint32_t w = length > 256 ? 256 : length;
-		if (!stm32_write_memory(stm, address, pos, w))
-			return 0;
-
-		address	+= w;
-		pos	+= w;
-		length	-= w;
-	}
-
-	return stm32_go(stm, stm->dev->ram_start);
+	uint32_t target_address = stm->dev->ram_start;
+	
+	return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
 }
 

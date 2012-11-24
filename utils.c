@@ -35,3 +35,11 @@ uint32_t be_u32(const uint32_t v) {
 	return v;
 }
 
+uint32_t le_u32(const uint32_t v) {
+        if (!cpu_le())
+                return  ((v & 0xFF000000) >> 24) |
+                        ((v & 0x00FF0000) >>  8) |
+                        ((v & 0x0000FF00) <<  8) |
+                        ((v & 0x000000FF) << 24);
+        return v;
+}

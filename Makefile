@@ -6,10 +6,7 @@ all: stm32flash
 serial_platform.o: serial_posix.c serial_w32.c
 
 OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o \
-       stm32/stmreset_binary.o parsers/parsers.a
-
-stm32/stmreset_binary.c:
-	$(MAKE) -C stm32
+       parsers/parsers.a
 
 parsers/parsers.a:
 	$(MAKE) -C parsers
