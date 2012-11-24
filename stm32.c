@@ -248,7 +248,7 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	return 1;
 }
 
-char stm32_write_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
+char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data[], unsigned int len) {
 	uint8_t cs;
 	unsigned int i;
 	int c, extra;
