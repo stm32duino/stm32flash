@@ -123,6 +123,7 @@ int main(int argc, char* argv[]) {
 
 	serial = serial_open(device);
 	if (!serial) {
+		fprintf(stderr, "Failed to open serial port: ");
 		perror(device);
 		goto close;
 	}

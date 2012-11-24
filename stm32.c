@@ -80,8 +80,9 @@ void stm32_send_byte(const stm32_t *stm, uint8_t byte) {
 	serial_err_t err;
 	err = serial_write(stm->serial, &byte, 1);
 	if (err != SERIAL_ERR_OK) {
+		fprintf(stderr, "Failed to send byte: ");
 		perror("send_byte");
-		assert(0);
+		exit(1);
 	}
 }
 
@@ -90,8 +91,9 @@ uint8_t stm32_read_byte(const stm32_t *stm) {
 	serial_err_t err;
 	err = serial_read(stm->serial, &byte, 1);
 	if (err != SERIAL_ERR_OK) {
+		fprintf(stderr, "Failed to read byte: ");
 		perror("read_byte");
-		assert(0);
+		exit(1);
 	}
 	return byte;
 }
