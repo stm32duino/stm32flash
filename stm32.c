@@ -310,6 +310,10 @@ char stm32_readprot_memory(const stm32_t *stm) {
 }
 
 char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
+
+	if (!pages)
+		return 1;
+	
 	if (!stm32_send_command(stm, stm->cmd->er)) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
 		return 0;
