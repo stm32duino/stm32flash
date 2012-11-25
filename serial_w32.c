@@ -57,7 +57,7 @@ serial_t* serial_open(const char *device)
 	}
 
 	/* Create file handle for port */
-	h->fd = CreateFile(device, GENERIC_READ | GENERIC_WRITE, 
+	h->fd = CreateFile(devName, GENERIC_READ | GENERIC_WRITE, 
 			0, /* Exclusive access */
 			NULL, /* No security */
 			OPEN_EXISTING,
