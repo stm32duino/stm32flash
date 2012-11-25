@@ -119,6 +119,8 @@ serial_err_t serial_setup(serial_t *h,
 		case SERIAL_BAUD_38400 : h->newtio.BaudRate = CBR_38400 ; break;
 		case SERIAL_BAUD_57600 : h->newtio.BaudRate = CBR_57600 ; break;
 		case SERIAL_BAUD_115200: h->newtio.BaudRate = CBR_115200; break;
+		case SERIAL_BAUD_128000: h->newtio.BaudRate = CBR_128000; break;
+		case SERIAL_BAUD_256000: h->newtio.BaudRate = CBR_256000; break;
 		// case SERIAL_BAUD_230400: h->newtio.BaudRate = CBR_230400; break;
  		// case SERIAL_BAUD_460800: h->newtio.BaudRate = CBR_460800; break;
 		// case SERIAL_BAUD_500000: h->newtio.BaudRate = CBR_500000; break;
