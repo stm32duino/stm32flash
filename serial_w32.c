@@ -121,14 +121,15 @@ serial_err_t serial_setup(serial_t *h,
 		case SERIAL_BAUD_115200: h->newtio.BaudRate = CBR_115200; break;
 		case SERIAL_BAUD_128000: h->newtio.BaudRate = CBR_128000; break;
 		case SERIAL_BAUD_256000: h->newtio.BaudRate = CBR_256000; break;
-		// case SERIAL_BAUD_230400: h->newtio.BaudRate = CBR_230400; break;
- 		// case SERIAL_BAUD_460800: h->newtio.BaudRate = CBR_460800; break;
-		// case SERIAL_BAUD_500000: h->newtio.BaudRate = CBR_500000; break;
-		// case SERIAL_BAUD_576000: h->newtio.BaudRate = CBR_576000; break;
-		// case SERIAL_BAUD_921600: h->newtio.BaudRate = CBR_921600; break;
-		// case SERIAL_BAUD_1000000: h->newtio.BaudRate = CBR_1000000; break;
-		// case SERIAL_BAUD_1500000: h->newtio.BaudRate = CBR_1500000; break;
-		// case SERIAL_BAUD_2000000: h->newtio.BaudRate = CBR_2000000; break;
+		/* These are not defined in WinBase.h and might work or not */
+		case SERIAL_BAUD_230400: h->newtio.BaudRate = 230400; break;
+ 		case SERIAL_BAUD_460800: h->newtio.BaudRate = 460800; break;
+		case SERIAL_BAUD_500000: h->newtio.BaudRate = 500000; break;
+		case SERIAL_BAUD_576000: h->newtio.BaudRate = 576000; break;
+		case SERIAL_BAUD_921600: h->newtio.BaudRate = 921600; break;
+		case SERIAL_BAUD_1000000: h->newtio.BaudRate = 1000000; break;
+		case SERIAL_BAUD_1500000: h->newtio.BaudRate = 1500000; break;
+		case SERIAL_BAUD_2000000: h->newtio.BaudRate = 2000000; break;
 
 		case SERIAL_BAUD_INVALID:
 		default:
