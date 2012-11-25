@@ -99,13 +99,19 @@ uint8_t stm32_read_byte(const stm32_t *stm) {
 }
 
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
+	int ret;
+
 	stm32_send_byte(stm, cmd);
 	stm32_send_byte(stm, cmd ^ 0xFF);
-	if (stm32_read_byte(stm) != STM32_ACK) {
-		fprintf(stderr, "Error sending command 0x%02x to device\n", cmd);
-		return 0;
+	ret = stm32_read_byte(stm);
+	if (ret == STM32_ACK) {
+		return 1;
+	} else if (ret == STM32_NACK) {
+		fprintf(stderr, "Got NACK from device on command 0x%02x\n", cmd);
+	} else {
+		fprintf(stderr, "Unexpected reply from device on command 0x%02x\n", cmd);
 	}
-	return 1;
+	return 0;
 }
 
 stm32_t* stm32_init(const serial_t *serial, const char init) {
