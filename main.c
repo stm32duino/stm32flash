@@ -50,7 +50,7 @@ int		wu		= 0;
 int		rp		= 0;
 int		ur		= 0;
 int		eraseOnly	= 0;
-int		npages		= 0xFF;
+int		npages		= 0;
 int             spage           = 0;
 char		verify		= 0;
 int		retry		= 10;
@@ -60,6 +60,8 @@ char		init_flag	= 1;
 char		force_binary	= 0;
 char		reset_flag	= 1;
 char		*filename;
+uint32_t	start_addr	= 0;
+uint32_t	readwrite_len	= 0;
 
 /* functions */
 int  parse_options(int argc, char *argv[]);
@@ -155,7 +157,7 @@ int main(int argc, char* argv[]) {
 	fprintf(diag, "- System RAM : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 
 	uint8_t		buffer[256];
-	uint32_t	addr;
+	uint32_t	addr, start, end;
 	unsigned int	len;
 	int		failed = 0;
 
@@ -168,10 +170,26 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
+		if (start_addr || readwrite_len) {
+			start = start_addr;
+			if (readwrite_len)
+				end = start_addr + readwrite_len;
+			else
+				end = stm->dev->fl_end;
+		} else {
+			start = stm->dev->fl_start + (spage * stm->dev->fl_ps);
+			end = stm->dev->fl_end;
+		}
+		addr = start;
+
+		if (start < stm->dev->fl_start || end > stm->dev->fl_end) {
+			fprintf(stderr, "Specified start & length are invalid\n");
+			goto close;
+		}
+
 		fflush(diag);
-		while(addr < stm->dev->fl_end) {
-			uint32_t left	= stm->dev->fl_end - addr;
+		while(addr < end) {
+			uint32_t left	= end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
 			if (!stm32_read_memory(stm, addr, buffer, len)) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x, target write-protected?\n", addr);
@@ -187,7 +205,7 @@ int main(int argc, char* argv[]) {
 			fprintf(diag,
 				"\rRead address 0x%08x (%.2f%%) ",
 				addr,
-				(100.0f / (float)(stm->dev->fl_end - stm->dev->fl_start)) * (float)(addr - stm->dev->fl_start)
+				(100.0f / (float)(end - start)) * (float)(addr - start)
 			);
 			fflush(diag);
 		}
@@ -209,6 +227,20 @@ int main(int argc, char* argv[]) {
 	} else if (eraseOnly) {
 		ret = 0;
 		fprintf(stdout, "Erasing flash\n");
+		if (start_addr || readwrite_len) {
+			if ((start_addr % stm->dev->fl_ps) != 0
+			    || (readwrite_len % stm->dev->fl_ps) != 0) {
+				fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
+				ret = 1;
+				goto close;
+			}
+			spage = start_addr / stm->dev->fl_ps;
+			if (readwrite_len)
+				npages = readwrite_len / stm->dev->fl_ps;
+			else
+				npages = (stm->dev->fl_end - stm->dev->fl_start) / stm->dev->fl_ps;
+		}
+
 		if (!stm32_erase_memory(stm, spage, npages)) {
 			fprintf(stderr, "Failed to erase memory\n");
 			ret = 1;
@@ -235,20 +267,41 @@ int main(int argc, char* argv[]) {
 		else
 			size = parser->size(p_st);
 
-		if (size > stm->dev->fl_end - stm->dev->fl_start) {
-			fprintf(stderr, "File provided larger then available flash space.\n");
+		if (start_addr || readwrite_len) {
+			start = start_addr;
+			if (readwrite_len)
+				end = start_addr + readwrite_len;
+			else
+				end = stm->dev->fl_end;
+		} else {
+			start = stm->dev->fl_start + (spage * stm->dev->fl_ps);
+			end = start + npages * stm->dev->fl_ps;
+		}
+		addr = start;
+
+		if (start < stm->dev->fl_start || end > stm->dev->fl_end || end - start > size) {
+			fprintf(stderr, "Specified start & length are invalid\n");
 			goto close;
 		}
+		size = end - start;
 
-		if (!stm32_erase_memory(stm, spage, npages)) {
+		// TODO: It is possible to write to non-page boundaries, by reading out flash
+		//       from partial pages and combining with the input data
+		// if ((start % stm->dev->fl_ps) != 0 || (end % stm->dev->fl_ps) != 0) {
+		//	fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
+		//	goto close;
+		// } 
+
+		// TODO: If writes are not page aligned, we should probably read out existing flash
+		//       contents first, so it can be preserved and combined with new data
+		if (!stm32_erase_memory(stm, start / stm->dev->fl_ps, size / stm->dev->fl_ps)) {
 			fprintf(stderr, "Failed to erase memory\n");
 			goto close;
 		}
 
-		addr = stm->dev->fl_start + (spage * stm->dev->fl_ps);
 		fflush(diag);
-		while(addr < stm->dev->fl_end && offset < size) {
-			uint32_t left	= stm->dev->fl_end - addr;
+		while(addr < end && offset < size) {
+			uint32_t left	= end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
 			len		= len > size - offset ? size - offset : len;
 
@@ -345,7 +398,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:jkfchuos:")) != -1) {
+	while((c = getopt(argc, argv, "b:r:w:e:vn:g:jkfchuos:S:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -371,6 +424,10 @@ int parse_options(int argc, char *argv[]) {
 				}
 				break;
 			case 'e':
+				if (readwrite_len || start_addr) {
+					fprintf(stderr, "ERROR: Invalid options, can't specify start page / num pages and start address/length\n");
+					return 1;
+				}
 				npages = strtoul(optarg, NULL, 0);
 				if (npages > 0xFF || npages < 0) {
 					fprintf(stderr, "ERROR: You need to specify a page count between 0 and 255");
@@ -422,9 +479,31 @@ int parse_options(int argc, char *argv[]) {
 				execute   = strtoul(optarg, NULL, 0);
 				break;
 			case 's':
+				if (readwrite_len || start_addr) {
+					fprintf(stderr, "ERROR: Invalid options, can't specify start page / num pages and start address/length\n");
+					return 1;
+				}
 				spage    = strtoul(optarg, NULL, 0);
+				if (npages == 0)
+					npages = 0xFF;
 				break;
-
+			case 'S':
+				if (spage || npages) {
+					fprintf(stderr, "ERROR: Invalid options, can't specify start page / num pages and start address/length\n");
+					return 1;
+				} else {
+					char *pLen;
+					start_addr = strtoul(optarg, &pLen, 0);
+					if (*pLen == ':') {
+						pLen++;
+						readwrite_len = strtoul(pLen, NULL, 0);
+						if (readwrite_len == 0) {
+							fprintf(stderr, "ERROR: Invalid options, can't specify zero length\n");
+							return 1;
+						}
+					}
+				}
+				break;
 			case 'f':
 				force_binary = 1;
 				break;
@@ -477,6 +556,8 @@ void show_help(char *name) {
 		"	-v		Verify writes\n"
 		"	-n count	Retry failed writes up to count times (default 10)\n"
 		"	-g address	Start execution at specified address (0 = flash start)\n"
+		"	-S address[:length]	Specify start address and optionally length for\n"
+		"	                   	read/write/erase operations\n"
 		"	-s start_page	Flash at specified page (0 = flash start)\n"
 		"	-f		Force binary parser\n"
 		"	-h		Show this help\n"
@@ -494,8 +575,12 @@ void show_help(char *name) {
 		"	Read flash to file:\n"
 		"		%s -r filename /dev/ttyS0\n"
 		"\n"
+		"	Read 100 bytes of flash from 0x1000 to stdout:\n"
+		"		%s -r - -S 0x1000:100 /dev/ttyS0\n"
+		"\n"
 		"	Start execution:\n"
 		"		%s -g 0x0 /dev/ttyS0\n",
+		name,
 		name,
 		name,
 		name,
