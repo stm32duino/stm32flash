@@ -403,6 +403,9 @@ char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8
 	uint32_t code_address_le = le_u32(target_address + 8);
 	uint32_t length = code_size + 8;
 	
+	/* Must be 32-bit aligned */
+	assert(target_address % 4 == 0);
+
 	uint8_t *mem = malloc(length);
 	if (!mem)
 		return 0;

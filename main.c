@@ -477,6 +477,10 @@ int parse_options(int argc, char *argv[]) {
 			case 'g':
 				exec_flag = 1;
 				execute   = strtoul(optarg, NULL, 0);
+				if (execute % 4 != 0) {
+					fprintf(stderr, "ERROR: Execution address must be word-aligned\n");
+					return 1;
+				}
 				break;
 			case 's':
 				if (readwrite_len || start_addr) {
