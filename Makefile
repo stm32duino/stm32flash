@@ -1,5 +1,5 @@
 
-CFLAGS = -Wall -g
+CFLAGS += -Wall -g
 
 all: stm32flash
 
@@ -10,7 +10,7 @@ OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o \
 
 parsers/parsers.a:
 	$(MAKE) -C parsers
-	
+
 stm32flash: $(OBJS)
 	$(CC) -o stm32flash $(OBJS)
 

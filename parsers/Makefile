@@ -1,5 +1,5 @@
 
-CFLAGS = -Wall -g
+CFLAGS += -Wall -g
 
 parsers.a: binary.o hex.o
 	$(AR) r parsers.a binary.o hex.o
