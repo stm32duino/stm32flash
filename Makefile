@@ -1,4 +1,4 @@
-
+PREFIX = /usr/local
 CFLAGS += -Wall -g
 
 all: stm32flash
@@ -19,4 +19,7 @@ clean:
 	$(MAKE) -C parsers clean
 
 install: all
-	cp stm32flash /usr/local/bin
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 755 stm32flash $(DESTDIR)$(PREFIX)/bin
+
+.PHONY: install
