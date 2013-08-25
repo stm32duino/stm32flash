@@ -88,15 +88,27 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 		case SERIAL_BAUD_57600 : port_baud = B57600 ; break;
 		case SERIAL_BAUD_115200: port_baud = B115200; break;
 		case SERIAL_BAUD_230400: port_baud = B230400; break;
+#ifdef B460800
  		case SERIAL_BAUD_460800: port_baud = B460800; break;
+#endif /* B460800 */
+#ifdef B921600
 		case SERIAL_BAUD_921600: port_baud = B921600; break;
-#ifdef __GNUC__
+#endif /* B921600 */
+#ifdef B500000
 		case SERIAL_BAUD_500000: port_baud = B500000; break;
+#endif /* B500000 */
+#ifdef B576000
 		case SERIAL_BAUD_576000: port_baud = B576000; break;
+#endif /* B576000 */
+#ifdef B1000000
 		case SERIAL_BAUD_1000000: port_baud = B1000000; break;
+#endif /* B1000000 */
+#ifdef B1500000
 		case SERIAL_BAUD_1500000: port_baud = B1500000; break;
+#endif /* B1500000 */
+#ifdef B2000000
 		case SERIAL_BAUD_2000000: port_baud = B2000000; break;
-#endif /* __GNUC__ */
+#endif /* B2000000 */
 
 		case SERIAL_BAUD_INVALID:
 		default:
@@ -140,7 +152,16 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 	) return SERIAL_ERR_OK;
 
 	/* reset the settings */
+#ifndef __sun		/* Used by GNU and BSD. Ignore __SVR4 in test. */
 	cfmakeraw(&h->newtio);
+#else /* __sun */
+	h->newtio.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR
+			       | IGNCR | ICRNL | IXON);
+	h->newtio.c_oflag &= ~OPOST;
+	h->newtio.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+	h->newtio.c_cflag &= ~(CSIZE | PARENB);
+	h->newtio.c_cflag |= CS8;
+#endif /* __sun */
 	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
 	h->newtio.c_iflag &= ~(IXON | IXOFF | IXANY | IGNPAR);
 	h->newtio.c_lflag &= ~(ECHOK | ECHOCTL | ECHOKE);
