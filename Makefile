@@ -1,25 +1,28 @@
 PREFIX = /usr/local
 CFLAGS += -Wall -g
 
+INSTALL = install
+
+OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o
+
+LIBOBJS = parsers/parsers.a
+
 all: stm32flash
 
 serial_platform.o: serial_posix.c serial_w32.c
 
-OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o \
-       parsers/parsers.a
-
 parsers/parsers.a:
-	$(MAKE) -C parsers
+	cd parsers && $(MAKE) parsers.a
 
-stm32flash: $(OBJS)
-	$(CC) -o stm32flash $(OBJS)
+stm32flash: $(OBJS) $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBOBJS)
 
 clean:
 	rm -f $(OBJS) stm32flash
-	$(MAKE) -C parsers clean
+	cd parsers && $(MAKE) $@
 
 install: all
-	install -d $(DESTDIR)$(PREFIX)/bin
-	install -m 755 stm32flash $(DESTDIR)$(PREFIX)/bin
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
+	$(INSTALL) -m 755 stm32flash $(DESTDIR)$(PREFIX)/bin
 
-.PHONY: install
+.PHONY: all clean install
