@@ -162,6 +162,11 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 	h->newtio.c_cflag &= ~(CSIZE | PARENB);
 	h->newtio.c_cflag |= CS8;
 #endif /* __sun */
+#ifdef __QNXNTO__
+	h->newtio.c_cflag &= ~(CSIZE | IHFLOW | OHFLOW);
+#else
+	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
+#endif
 	h->newtio.c_cflag &= ~(CSIZE | CRTSCTS);
 	h->newtio.c_iflag &= ~(IXON | IXOFF | IXANY | IGNPAR);
 	h->newtio.c_lflag &= ~(ECHOK | ECHOCTL | ECHOKE);
