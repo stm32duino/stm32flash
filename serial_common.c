@@ -74,6 +74,20 @@ const unsigned int serial_get_baud_int(const serial_baud_t baud) {
 	}
 }
 
+serial_bits_t serial_get_bits(const char *mode) {
+	if (!mode)
+		return SERIAL_BITS_INVALID;
+	switch(mode[0]) {
+		case '5': return SERIAL_BITS_5;
+		case '6': return SERIAL_BITS_6;
+		case '7': return SERIAL_BITS_7;
+		case '8': return SERIAL_BITS_8;
+
+		default:
+			return SERIAL_BITS_INVALID;
+	}
+}
+
 const unsigned int serial_get_bits_int(const serial_bits_t bits) {
 	switch(bits) {
 		case SERIAL_BITS_5: return 5;
@@ -86,6 +100,25 @@ const unsigned int serial_get_bits_int(const serial_bits_t bits) {
 	}
 }
 
+serial_parity_t serial_get_parity(const char *mode) {
+	if (!mode || !mode[0])
+		return SERIAL_PARITY_INVALID;
+	switch(mode[1]) {
+		case 'N':
+		case 'n':
+			return SERIAL_PARITY_NONE;
+		case 'E':
+		case 'e':
+			return SERIAL_PARITY_EVEN;
+		case 'O':
+		case 'o':
+			return SERIAL_PARITY_ODD;
+
+		default:
+			return SERIAL_PARITY_INVALID;
+	}
+}
+
 const char serial_get_parity_str(const serial_parity_t parity) {
 	switch(parity) {
 		case SERIAL_PARITY_NONE: return 'N';
@@ -94,6 +127,18 @@ const char serial_get_parity_str(const serial_parity_t parity) {
 
 		default:
 			return ' ';
+	}
+}
+
+serial_stopbit_t serial_get_stopbit(const char *mode) {
+	if (!mode || !mode[0] || !mode[1])
+		return SERIAL_STOPBIT_INVALID;
+	switch(mode[2]) {
+		case '1': return SERIAL_STOPBIT_1;
+		case '2': return SERIAL_STOPBIT_2;
+
+		default:
+			return SERIAL_STOPBIT_INVALID;
 	}
 }
 

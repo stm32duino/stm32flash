@@ -28,14 +28,18 @@ typedef struct serial serial_t;
 typedef enum {
 	SERIAL_PARITY_NONE,
 	SERIAL_PARITY_EVEN,
-	SERIAL_PARITY_ODD
+	SERIAL_PARITY_ODD,
+
+	SERIAL_PARITY_INVALID
 } serial_parity_t;
 
 typedef enum {
 	SERIAL_BITS_5,
 	SERIAL_BITS_6,
 	SERIAL_BITS_7,
-	SERIAL_BITS_8
+	SERIAL_BITS_8,
+
+	SERIAL_BITS_INVALID
 } serial_bits_t;
 
 typedef enum {
@@ -65,6 +69,8 @@ typedef enum {
 typedef enum {
 	SERIAL_STOPBIT_1,
 	SERIAL_STOPBIT_2,
+
+	SERIAL_STOPBIT_INVALID
 } serial_stopbit_t;
 
 typedef enum {
@@ -88,10 +94,13 @@ serial_err_t serial_read (const serial_t *h, const void *buffer, unsigned int le
 const char*  serial_get_setup_str(const serial_t *h);
 
 /* common helper functions */
-serial_baud_t serial_get_baud            (const unsigned int baud);
+serial_baud_t      serial_get_baud       (const unsigned int baud);
 const unsigned int serial_get_baud_int   (const serial_baud_t baud);
+serial_bits_t      serial_get_bits       (const char *mode);
 const unsigned int serial_get_bits_int   (const serial_bits_t bits);
+serial_parity_t    serial_get_parity     (const char *mode);
 const char         serial_get_parity_str (const serial_parity_t parity);
+serial_stopbit_t   serial_get_stopbit    (const char *mode);
 const unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit);
 
 #endif

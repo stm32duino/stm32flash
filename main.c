@@ -44,6 +44,7 @@ parser_t	*parser		= NULL;
 /* settings */
 char		*device		= NULL;
 serial_baud_t	baudRate	= SERIAL_BAUD_57600;
+char		*serial_mode	= "8e1";
 int		rd	 	= 0;
 int		wr		= 0;
 int		wu		= 0;
@@ -136,9 +137,9 @@ int main(int argc, char* argv[]) {
 	if (serial_setup(
 		serial,
 		baudRate,
-		SERIAL_BITS_8,
-		SERIAL_PARITY_EVEN,
-		SERIAL_STOPBIT_1
+		serial_get_bits(serial_mode),
+		serial_get_parity(serial_mode),
+		serial_get_stopbit(serial_mode)
 	) != SERIAL_ERR_OK) {
 		perror(device);
 		goto close;
@@ -398,7 +399,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:r:w:e:vn:g:jkfchuos:S:")) != -1) {
+	while((c = getopt(argc, argv, "b:m:r:w:e:vn:g:jkfchuos:S:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -408,6 +409,17 @@ int parse_options(int argc, char *argv[]) {
 						fprintf(stderr, " %d\n", serial_get_baud_int(baudRate));
 					return 1;
 				}
+				break;
+
+			case 'm':
+				if (strlen(optarg) != 3
+					|| serial_get_bits(optarg) == SERIAL_BITS_INVALID
+					|| serial_get_parity(optarg) == SERIAL_PARITY_INVALID
+					|| serial_get_stopbit(optarg) == SERIAL_STOPBIT_INVALID) {
+					fprintf(stderr, "Invalid serial mode\n");
+					return 1;
+				}
+				serial_mode = optarg;
 				break;
 
 			case 'r':
@@ -550,6 +562,7 @@ void show_help(char *name) {
 	fprintf(stderr,
 		"Usage: %s [-bvngfhc] [-[rw] filename] /dev/ttyS0\n"
 		"	-b rate		Baud rate (default 57600)\n"
+		"	-m mode		Serial port mode (default 8e1)\n"
 		"	-r filename	Read flash to file (or - stdout)\n"
 		"	-w filename	Write flash from file (or - stdout)\n"
 		"	-u		Disable the flash write-protection\n"

@@ -6,6 +6,8 @@ stm32flash \- UART flashing utility for STM32
 .RB [ \-cfhjkouv ]
 .RB [ \-b
 .IR baud_rate ]
+.RB [ \-m
+.IR serial_mode ]
 .RB [ \-r
 .IR filename ]
 .RB [ \-w
@@ -45,6 +47,17 @@ This option could be required together with option
 or if following interaction with bootloader is expected.
 Default is
 .IR 57600 .
+
+.TP
+.BI "\-m" " mode"
+Specify the format of UART data.
+.I mode
+is a three characters long string where each character specifies, in
+this strict order, character size, parity and stop bits.
+The only value currenly used by standard STM32 bootloader is
+.IR 8e1 .
+Default is
+.IR 8e1 .
 
 .TP
 .BI "\-r" " filename"
