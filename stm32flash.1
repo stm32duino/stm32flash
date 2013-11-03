@@ -1,0 +1,198 @@
+.TH STM32FLASH 1 "2013\-11\-03" STM32FLASH "User command"
+.SH NAME
+stm32flash \- UART flashing utility for STM32
+.SH SYNOPSIS
+.B stm32flash
+.RB [ \-cfhjkouv ]
+.RB [ \-b
+.IR baud_rate ]
+.RB [ \-r
+.IR filename ]
+.RB [ \-w
+.IR filename ]
+.RB [ \-e
+.IR num ]
+.RB [ \-n
+.IR count ]
+.RB [ \-g
+.IR address ]
+.RB [ \-s
+.IR start_page ]
+.RB [ \-S
+.IR address [: length ]
+.I tty_device
+
+.SH DESCRIPTION
+.B stm32flash
+reads or writes the flash memory of STM32.
+
+It requires the STM32 to embed a bootloader compliant with ST
+application note AN3155.
+.B stm32flash
+uses the serial port
+.I tty_device
+to interact with the bootloader of STM32.
+
+.SH OPTIONS
+.TP
+.BI "\-b" " baud_rate"
+Specify baud rate speed of
+.IR tty_device .
+Please notice that the ST bootloader can automatically detect the baud rate,
+as explaned in chapter 2 of AN3155.
+This option could be required together with option
+.B "\-c"
+or if following interaction with bootloader is expected.
+Default is
+.IR 57600 .
+
+.TP
+.BI "\-r" " filename"
+Specify to read the STM32 flash and write its content in
+.I filename
+in raw binary format (see below
+.BR "FORMAT CONVERSION" ).
+
+.TP
+.BI "\-w" " filename"
+Specify to write the STM32 flash with the content of
+.IR filename .
+File format can be either raw binary or intel hex (see below
+.BR "FORMAT CONVERSION" ).
+The file format is automatically detected.
+To by\-pass format detection and force binary mode (e.g. to
+write an intel hex content in STM32 flash), use
+.B \-f
+option.
+
+.TP
+.B \-u
+Specify to disable write\-protection from STM32 flash.
+The STM32 will be reset after this operation.
+
+.TP
+.B \-j
+Enable the flash read\-protection.
+
+.TP
+.B \-k
+Disable the flash read\-protection.
+
+.TP
+.B \-o
+Erase only.
+
+.TP
+.BI "\-e" " num"
+Specify to erase only
+.I num
+pages before writing the flash. Default is to erase the whole flash.
+
+.TP
+.B \-v
+Specify to verify flash content after write operation.
+
+.TP
+.BI "\-n" " count"
+Specify to retry failed writes up to
+.I count
+times. Default is 10 times.
+
+.TP
+.BI "\-g" " address"
+Specify address to start execution from (0 = flash start).
+
+.TP
+.BI "\-s" " start_page"
+Specify flash page offset (0 = flash start).
+
+.TP
+.BI "\-S" " address" "[:" "length" "]"
+Specify start address and optionally length for read/write/erase operations.
+
+.TP
+.B \-f
+Force binary parser while reading file with
+.BR "\-w" "."
+
+.TP
+.B \-h
+Show help.
+
+.TP
+.B \-c
+Specify to resume the existing UART connection and don't send initial
+INIT sequence to detect baud rate. Baud rate must be kept the same as the
+existing connection. This is useful if the reset fails.
+
+.SH EXAMPLES
+Get device information:
+.RS
+.PD 0
+.P
+stm32flash /dev/ttyS0
+.PD
+.RE
+
+Write with verify and then start execution:
+.RS
+.PD 0
+.P
+stm32flash \-w filename \-v \-g 0x0 /dev/ttyS0
+.PD
+.RE
+
+Read flash to file:
+.RS
+.PD 0
+.P
+stm32flash \-r filename /dev/ttyS0
+.PD
+.RE
+
+Start execution:
+.RS
+.PD 0
+.P
+stm32flash \-g 0x0 /dev/ttyS0
+.PD
+.RE
+
+.SH FORMAT CONVERSION
+Flash images provided by ST or created with ST tools are often in file
+format Motorola S\-Record.
+Conversion between raw binary, intel hex and Motorola S\-Record can be
+done through software package SRecord.
+
+.SH AUTHORS
+The original software package
+.B stm32flash
+is written by
+.I Geoffrey McRae <geoff@spacevs.com>
+and available in http://stm32flash.googlecode.com .
+
+By November 2012 the project is migrated to
+https://gitorious.org/stm32flash
+and maintained by
+.IR "Tormod Volden <debian.tormod@gmail.com>" .
+
+This man page is written by
+.IR "Antonio Borneo <borneo.antonio@gmail.com>" .
+
+.SH SEE ALSO
+.BR "srec_cat" "(1)," " srec_intel" "(5)," " srec_motorola" "(5)."
+
+The communication protocol used by ST bootloader is documented in ST
+application note AN3155. Copy is include in the source code of this
+software. Updated version of the application note is available in ST
+website:
+.PD 0
+.P
+http://www.st.com/web/en/resource/technical/document/application_note/CD00264342.pdf
+.PD
+
+.SH LICENSE
+.B stm32flash
+is distributed under GNU GENERAL PUBLIC LICENSE Version 2.
+Copy of the license is available within the source code in the file
+.IR "gpl\-2.0.txt" .
