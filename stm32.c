@@ -29,7 +29,18 @@
 #define STM32_NACK	0x1F
 #define STM32_CMD_INIT	0x7F
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
+#define STM32_CMD_GVR	0x01	/* get version and read protection status */
+#define STM32_CMD_GID	0x02	/* get ID */
+#define STM32_CMD_RM	0x11	/* read memory */
+#define STM32_CMD_GO	0x21	/* go */
+#define STM32_CMD_WM	0x31	/* write memory */
+#define STM32_CMD_ER	0x43	/* erase */
 #define STM32_CMD_EE	0x44	/* extended erase */
+#define STM32_CMD_WP	0x63	/* write protect */
+#define STM32_CMD_UW	0x73	/* write unprotect */
+#define STM32_CMD_RP	0x82	/* readout protect */
+#define STM32_CMD_UR	0x92	/* readout unprotect */
+#define STM32_CMD_ERR	0xFF	/* not a valid command */
 
 struct stm32_cmd {
 	uint8_t get;
@@ -139,11 +150,12 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 }
 
 stm32_t* stm32_init(const serial_t *serial, const char init) {
-	uint8_t len;
+	uint8_t len, val;
 	stm32_t *stm;
 
 	stm      = calloc(sizeof(stm32_t), 1);
-	stm->cmd = calloc(sizeof(stm32_cmd_t), 1);
+	stm->cmd = malloc(sizeof(stm32_cmd_t));
+	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
 	stm->serial = serial;
 
 	if (init) {
@@ -159,26 +171,52 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	if (!stm32_send_command(stm, STM32_CMD_GET)) return 0;
 	len              = stm32_read_byte(stm) + 1;
 	stm->bl_version  = stm32_read_byte(stm); --len;
-	stm->cmd->get    = stm32_read_byte(stm); --len;
-	stm->cmd->gvr    = stm32_read_byte(stm); --len;
-	stm->cmd->gid    = stm32_read_byte(stm); --len;
-	stm->cmd->rm     = stm32_read_byte(stm); --len;
-	stm->cmd->go     = stm32_read_byte(stm); --len;
-	stm->cmd->wm     = stm32_read_byte(stm); --len;
-	stm->cmd->er     = stm32_read_byte(stm); --len;
-	stm->cmd->wp     = stm32_read_byte(stm); --len;
-	stm->cmd->uw     = stm32_read_byte(stm); --len;
-	stm->cmd->rp     = stm32_read_byte(stm); --len;
-	stm->cmd->ur     = stm32_read_byte(stm); --len;
-	if (len > 0) {
-		fprintf(stderr, "Seems this bootloader returns more then we understand in the GET command, we will skip the unknown bytes\n");
-		while(len-- > 0) stm32_read_byte(stm);
+	while (len-- > 0) {
+		val = stm32_read_byte(stm);
+		switch (val) {
+		case STM32_CMD_GET:
+			stm->cmd->get = val; break;
+		case STM32_CMD_GVR:
+			stm->cmd->gvr = val; break;
+		case STM32_CMD_GID:
+			stm->cmd->gid = val; break;
+		case STM32_CMD_RM:
+			stm->cmd->rm = val; break;
+		case STM32_CMD_GO:
+			stm->cmd->go = val; break;
+		case STM32_CMD_WM:
+			stm->cmd->wm = val; break;
+		case STM32_CMD_ER:
+		case STM32_CMD_EE:
+			stm->cmd->er = val; break;
+		case STM32_CMD_WP:
+			stm->cmd->wp = val; break;
+		case STM32_CMD_UW:
+			stm->cmd->uw = val; break;
+		case STM32_CMD_RP:
+			stm->cmd->rp = val; break;
+		case STM32_CMD_UR:
+			stm->cmd->ur = val; break;
+		default:
+			fprintf(stderr,
+				"Seems this bootloader returns more then we "
+				"understand in the GET command.\n"
+				"We will skip unknown byte 0x%02x\n", val);
+		}
 	}
 	if (stm32_read_byte(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
 	}
-	
+
+	if (stm->cmd->get == STM32_CMD_ERR
+	    || stm->cmd->gvr == STM32_CMD_ERR
+	    || stm->cmd->gid == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: bootloader did not returned correct "
+			"information from GET command\n");
+		return NULL;
+	}
+
 	/* get the version and read protection status  */
 	if (!stm32_send_command(stm, stm->cmd->gvr)) {
 		stm32_close(stm);
@@ -246,6 +284,11 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	address = be_u32      (address);
 	cs      = stm32_gen_cs(address);
 
+	if (stm->cmd->rm == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
+		return 0;
+	}
+
 	if (!stm32_send_command(stm, stm->cmd->rm)) return 0;
 	if (serial_write(stm->serial, &address, 4) != SERIAL_ERR_OK)
 		return 0;
@@ -275,6 +318,11 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 
 	address = be_u32      (address);
 	cs      = stm32_gen_cs(address);
+
+	if (stm->cmd->wm == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: WRITE command not implemented in bootloader.\n");
+		return 0;
+	}
 
 	/* send the address and checksum */
 	if (!stm32_send_command(stm, stm->cmd->wm)) return 0;
@@ -308,18 +356,33 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 }
 
 char stm32_wunprot_memory(const stm32_t *stm) {
+	if (stm->cmd->uw == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: WRITE UNPROTECT command not implemented in bootloader.\n");
+		return 0;
+	}
+
 	if (!stm32_send_command(stm, stm->cmd->uw)) return 0;
 	if (!stm32_send_command(stm, 0x8C        )) return 0;
 	return 1;
 }
 
 char stm32_runprot_memory  (const stm32_t *stm) {
+	if (stm->cmd->ur == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: READ UNPROTECT command not implemented in bootloader.\n");
+		return 0;
+	}
+
 	if (!stm32_send_command(stm, stm->cmd->ur)) return 0;
 	if (!stm32_send_command(stm, 0x6D        )) return 0;
 	return 1;
 }
 
 char stm32_readprot_memory(const stm32_t *stm) {
+	if (stm->cmd->rp == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: READ PROTECT command not implemented in bootloader.\n");
+		return 0;
+	}
+
 	if (!stm32_send_command(stm, stm->cmd->rp)) return 0;
 	if (!stm32_send_command(stm, 0x7D        )) return 0;
 	return 1;
@@ -329,7 +392,12 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 
 	if (!pages)
 		return 1;
-	
+
+	if (stm->cmd->er == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: ERASE command not implemented in bootloader.\n");
+		return 0;
+	}
+
 	if (!stm32_send_command(stm, stm->cmd->er)) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
 		return 0;
@@ -438,6 +506,11 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 
 	address = be_u32      (address);
 	cs      = stm32_gen_cs(address);
+
+        if (stm->cmd->go == STM32_CMD_ERR) {
+                fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
+                return 0;
+        }
 
 	if (!stm32_send_command(stm, stm->cmd->go)) return 0;
 	serial_write(stm->serial, &address, 4);
