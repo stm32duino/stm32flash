@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "init.h"
 #include "utils.h"
 #include "serial.h"
 #include "stm32.h"
@@ -61,6 +62,7 @@ char		init_flag	= 1;
 char		force_binary	= 0;
 char		reset_flag	= 1;
 char		*filename;
+char		*gpio_seq	= NULL;
 uint32_t	start_addr	= 0;
 uint32_t	readwrite_len	= 0;
 
@@ -146,6 +148,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
+	if (init_flag && init_bl_entry(serial, gpio_seq) == 0) goto close;
 	if (!(stm = stm32_init(serial, init_flag))) goto close;
 
 	fprintf(diag, "Version      : 0x%02x\n", stm->bl_version);
@@ -384,7 +387,7 @@ close:
 	if (stm && reset_flag) {
 		fprintf(diag, "\nResetting device... ");
 		fflush(diag);
-		if (stm32_reset_device(stm))
+		if (init_bl_exit(stm, serial, gpio_seq))
 			fprintf(diag, "done.\n");
 		else	fprintf(diag, "failed.\n");
 	}
@@ -399,7 +402,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:m:r:w:e:vn:g:jkfchuos:S:")) != -1) {
+	while((c = getopt(argc, argv, "b:m:r:w:e:vn:g:jkfchuos:S:i:")) != -1) {
 		switch(c) {
 			case 'b':
 				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
@@ -531,6 +534,14 @@ int parse_options(int argc, char *argv[]) {
 			case 'h':
 				show_help(argv[0]);
 				return 1;
+
+			case 'i':
+#if !defined(__linux__)
+				fprintf(stderr, "GPIO control only available in Linux\n");
+				return 1;
+#endif
+				gpio_seq = optarg;
+				break;
 		}
 	}
 
@@ -581,6 +592,9 @@ void show_help(char *name) {
 		"	-c		Resume the connection (don't send initial INIT)\n"
 		"			*Baud rate must be kept the same as the first init*\n"
 		"			This is useful if the reset fails\n"
+		"	-i GPIO_string	GPIO sequence to enter/exit bootloader mode\n"
+		"			GPIO_string=[entry_seq][:[exit_seq]]\n"
+		"			sequence=[-]n[,sequence]\n"
 		"\n"
 		"Examples:\n"
 		"	Get device information:\n"
@@ -596,7 +610,13 @@ void show_help(char *name) {
 		"		%s -r - -S 0x1000:100 /dev/ttyS0\n"
 		"\n"
 		"	Start execution:\n"
-		"		%s -g 0x0 /dev/ttyS0\n",
+		"		%s -g 0x0 /dev/ttyS0\n"
+		"\n"
+		"	GPIO sequence:\n"
+		"	- entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high\n"
+		"	- exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high\n"
+		"		%s -i -3,-2,2:3,-2,2 /dev/ttyS0\n",
+		name,
 		name,
 		name,
 		name,

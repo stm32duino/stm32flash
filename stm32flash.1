@@ -22,6 +22,8 @@ stm32flash \- UART flashing utility for STM32
 .IR start_page ]
 .RB [ \-S
 .IR address [: length ]
+.RB [ \-i
+.IR GPIO_string ]
 .I tty_device
 
 .SH DESCRIPTION
@@ -138,6 +140,78 @@ Specify to resume the existing UART connection and don't send initial
 INIT sequence to detect baud rate. Baud rate must be kept the same as the
 existing connection. This is useful if the reset fails.
 
+.TP
+.BI "\-i" " GPIO_string"
+Specify the GPIO sequences on the host to force STM32 to enter and
+exit bootloader mode. GPIO are supposed to be connected from host to
+STM32 beside the UART connection. (See below
+.B BOOTLOADER GPIO SEQUENCE
+for the format of
+.I GPIO_string
+and further explanation).
+
+.SH BOOTLOADER GPIO SEQUENCE
+This feature is currently available on Linux host only.
+
+As explained in ST application note AN2606, after reset the STM32 will
+execute either the application program in user flash or the bootloader,
+depending on the level applied at specific pins of STM32 during reset.
+
+STM32 bootloader is automatically activated by configuring the pins
+BOOT0="high" and BOOT1="low" and then by applying a reset.
+Application program in user flash is activated by configuring the pin
+BOOT0="low" (the level on BOOT1 is ignored) and then by applying a reset.
+
+When GPIO from host computer are connected to either configuration and
+reset pins of STM32,
+.B stm32flash
+can control the host GPIO to reset STM32 and to force execution of
+bootloader or execution of application program.
+
+The sequence of GPIO values to entry to and exit from bootloader mode is
+provided with command line option
+.B "\-i"
+.IR "GPIO_string" .
+
+.PD 0
+The format of
+.IR "GPIO_string" " is:"
+.RS
+GPIO_string = [entry sequence][:[exit sequence]]
+.P
+sequence = [\-]n[,sequence]
+.RE
+.P
+In the above sequences, negative numbers correspond to GPIO at "low" level;
+numbers without sign correspond to GPIO at "high" level.
+.PD
+
+.PD 0
+As example, let's suppose the following connection between host and STM32:
+.IP \(bu 2
+host GPIO_3 connected to reset pin of STM32;
+.IP \(bu 2
+host GPIO_4 connected to STM32 pin BOOT0;
+.IP \(bu 2
+host GPIO_5 connected to STM32 pin BOOT1.
+.PD
+.P
+
+In this case, the sequence to enter in bootloader mode is: first put
+GPIO_4="high" and GPIO_5="low"; then send reset pulse by GPIO_3="low"
+followed by GPIO_3="high".
+The corresponding string for
+.I GPIO_string
+is "4,\-5,\-3,3".
+
+To exit from bootloade and run the application program, the sequence is:
+put GPIO_4="low"; then send reset pulse.
+The corresponding string for
+.I GPIO_string
+is "\-4,\-3,3".
+
+The complete command line flag is "\-i 4,\-5,\-3,3:\-4,\-3,3".
+
 .SH EXAMPLES
 Get device information:
 .RS
@@ -168,6 +242,18 @@ Start execution:
 .PD 0
 .P
 stm32flash \-g 0x0 /dev/ttyS0
+.PD
+.RE
+
+Specify:
+.PD 0
+.IP \(bu 2
+entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high
+.IP \(bu 2
+exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high
+.P
+.RS
+stm32flash \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
 .PD
 .RE
 
@@ -202,6 +288,13 @@ website:
 .PD 0
 .P
 http://www.st.com/web/en/resource/technical/document/application_note/CD00264342.pdf
+.PD
+
+Boot mode selection for STM32 is documented in ST application note
+AN2606, available in ST website:
+.PD 0
+.P
+http://www.st.com/web/en/resource/technical/document/application_note/CD00167594.pdf
 .PD
 
 .SH LICENSE
