@@ -146,8 +146,9 @@ existing connection. This is useful if the reset fails.
 .TP
 .BI "\-i" " GPIO_string"
 Specify the GPIO sequences on the host to force STM32[W] to enter and
-exit bootloader mode. GPIO are supposed to be connected from host to
-STM32[W] beside the UART connection. (See below
+exit bootloader mode. GPIO can either be real GPIO connected from host to
+STM32[W] beside the UART connection, or UART's modem signals used as
+GPIO. (See below
 .B BOOTLOADER GPIO SEQUENCE
 for the format of
 .I GPIO_string
@@ -187,6 +188,11 @@ sequence = [\-]n[,sequence]
 .P
 In the above sequences, negative numbers correspond to GPIO at "low" level;
 numbers without sign correspond to GPIO at "high" level.
+The value "n" can either be the GPIO number on the host system or the
+string "rts", "dtr" or "brk". The strings "rts" and "dtr" drive the
+corresponding UART's modem lines RTS and DTR as GPIO.
+The string "brk" forces the UART to send a BREAK sequence on TX line (the
+optional minus sign before "brk" has no effect).
 .PD
 
 .PD 0
@@ -268,12 +274,12 @@ stm32flash \-g 0x0 /dev/ttyS0
 Specify:
 .PD 0
 .IP \(bu 2
-entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high
+entry sequence: RTS=low, DTR=low, DTR=high
 .IP \(bu 2
-exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high
+exit sequence: RTS=high, DTR=low, DTR=high
 .P
 .RS
-stm32flash \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
+stm32flash \-i \-rts,\-dtr,dtr:rts,\-dtr,dtr /dev/ttyS0
 .PD
 .RE
 

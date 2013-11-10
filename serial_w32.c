@@ -250,3 +250,6 @@ const char* serial_get_setup_str(const serial_t *h)
 	return str;
 }
 
+serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
+	return SERIAL_ERR_UNKNOWN;
+}

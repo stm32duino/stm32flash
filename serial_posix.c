@@ -24,6 +24,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/ioctl.h>
 
 #include "serial.h"
 
@@ -258,3 +259,33 @@ const char* serial_get_setup_str(const serial_t *h) {
 	return str;
 }
 
+serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
+	int bit, lines;
+
+	switch(n) {
+		case GPIO_RTS:
+			bit = TIOCM_RTS;
+			break;
+
+		case GPIO_DTR:
+			bit = TIOCM_DTR;
+			break;
+
+		case GPIO_BRK:
+			if (tcsendbreak(h->fd, 1))
+				return SERIAL_ERR_SYSTEM;
+			return SERIAL_ERR_OK;
+
+		default:
+			return SERIAL_ERR_NODATA;
+	}
+
+	/* handle RTS/DTR */
+	if (ioctl(h->fd, TIOCMGET, &lines))
+		return SERIAL_ERR_SYSTEM;
+	lines = level ? lines | bit : lines & ~bit;
+	if (ioctl(h->fd, TIOCMSET, &lines))
+		return SERIAL_ERR_SYSTEM;
+
+	return SERIAL_ERR_OK;
+}

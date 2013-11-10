@@ -97,7 +97,7 @@ static int release_gpio(int n)
 	return write_to("/sys/class/gpio/unexport", num);
 }
 
-static int gpio_sequence(const char *s, size_t l)
+static int gpio_sequence(serial_t *serial, const char *s, size_t l)
 {
 	struct gpio_list *gpio_to_release = NULL, *to_free;
 	int ret, level, gpio;
@@ -111,16 +111,30 @@ static int gpio_sequence(const char *s, size_t l)
 		} else
 			level = 1;
 
-		if (!isdigit(*s)) {
+		if (isdigit(*s)) {
+			gpio = atoi(s);
+			while (isdigit(*s)) {
+				s++;
+				l--;
+			}
+		} else if (!strncmp(s, "rts", 3)) {
+			gpio = -GPIO_RTS;
+			s += 3;
+			l -= 3;
+		} else if (!strncmp(s, "dtr", 3)) {
+			gpio = -GPIO_DTR;
+			s += 3;
+			l -= 3;
+		} else if (!strncmp(s, "brk", 3)) {
+			gpio = -GPIO_BRK;
+			s += 3;
+			l -= 3;
+		} else {
 			fprintf(stderr, "Character \'%c\' is not a digit\n", *s);
 			ret = 0;
 			break;
 		}
-		gpio = atoi(s);
-		while (isdigit(*s)) {
-			s++;
-			l--;
-		}
+
 		if (*s && (l > 0)) {
 			if (*s == ',') {
 				s++;
@@ -131,7 +145,10 @@ static int gpio_sequence(const char *s, size_t l)
 				break;
 			}
 		}
-		ret = drive_gpio(gpio, level, &gpio_to_release);
+		if (gpio < 0)
+			ret = (serial_gpio(serial, -gpio, level) == SERIAL_ERR_OK);
+		else
+			ret = drive_gpio(gpio, level, &gpio_to_release);
 		usleep(100000);
 	}
 
@@ -145,7 +162,7 @@ static int gpio_sequence(const char *s, size_t l)
 	return ret;
 }
 
-static int gpio_bl_entry(const char *seq)
+static int gpio_bl_entry(serial_t *serial, const char *seq)
 {
 	char *s;
 
@@ -154,12 +171,12 @@ static int gpio_bl_entry(const char *seq)
 
 	s = strchr(seq, ':');
 	if (s == NULL)
-		return gpio_sequence(seq, strlen(seq));
+		return gpio_sequence(serial, seq, strlen(seq));
 
-	return gpio_sequence(seq, s - seq);
+	return gpio_sequence(serial, seq, s - seq);
 }
 
-static int gpio_bl_exit(const char *seq)
+static int gpio_bl_exit(serial_t *serial, const char *seq)
 {
 	char *s;
 
@@ -170,13 +187,13 @@ static int gpio_bl_exit(const char *seq)
 	if (s == NULL || s[1] == '\0')
 		return 1;
 
-	return gpio_sequence(s + 1, strlen(s + 1));
+	return gpio_sequence(serial, s + 1, strlen(s + 1));
 }
 
 int init_bl_entry(serial_t *serial, const char *seq)
 {
 	if (seq)
-		return gpio_bl_entry(seq);
+		return gpio_bl_entry(serial, seq);
 
 	return 1;
 }
@@ -184,7 +201,7 @@ int init_bl_entry(serial_t *serial, const char *seq)
 int init_bl_exit(stm32_t *stm, serial_t *serial, const char *seq)
 {
 	if (seq)
-		return gpio_bl_exit(seq);
+		return gpio_bl_exit(serial, seq);
 
 	return stm32_reset_device(stm);
 }
