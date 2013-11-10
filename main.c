@@ -238,12 +238,15 @@ int main(int argc, char* argv[]) {
 				ret = 1;
 				goto close;
 			}
-			spage = start_addr / stm->dev->fl_ps;
+			spage = (start_addr - stm->dev->fl_start) / stm->dev->fl_ps;
 			if (readwrite_len)
 				npages = readwrite_len / stm->dev->fl_ps;
 			else
 				npages = (stm->dev->fl_end - stm->dev->fl_start) / stm->dev->fl_ps;
 		}
+
+		if (!spage && !npages)
+			npages = 0xff; /* mass erase */
 
 		if (!stm32_erase_memory(stm, spage, npages)) {
 			fprintf(stderr, "Failed to erase memory\n");
@@ -273,21 +276,34 @@ int main(int argc, char* argv[]) {
 
 		if (start_addr || readwrite_len) {
 			start = start_addr;
-			if (readwrite_len)
+			spage = (start_addr - stm->dev->fl_start) / stm->dev->fl_ps;
+			if (readwrite_len) {
 				end = start_addr + readwrite_len;
-			else
+				npages = (end - stm->dev->fl_start + stm->dev->fl_ps - 1) / stm->dev->fl_ps - spage;
+			} else {
 				end = stm->dev->fl_end;
+				if (spage)
+					npages = (end - stm->dev->fl_start) / stm->dev->fl_ps - spage;
+				else
+					npages = 0xff; /* mass erase */
+			}
+		} else if (!spage && !npages) {
+			start = stm->dev->fl_start;
+			end = stm->dev->fl_end;
+			npages = 0xff; /* mass erase */
 		} else {
 			start = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-			end = start + npages * stm->dev->fl_ps;
+			if (npages)
+				end = start + npages * stm->dev->fl_ps;
+			else
+				end = stm->dev->fl_end;
 		}
 		addr = start;
 
-		if (start < stm->dev->fl_start || end > stm->dev->fl_end || end - start > size) {
+		if (start < stm->dev->fl_start || end > stm->dev->fl_end) {
 			fprintf(stderr, "Specified start & length are invalid\n");
 			goto close;
 		}
-		size = end - start;
 
 		// TODO: It is possible to write to non-page boundaries, by reading out flash
 		//       from partial pages and combining with the input data
@@ -298,7 +314,7 @@ int main(int argc, char* argv[]) {
 
 		// TODO: If writes are not page aligned, we should probably read out existing flash
 		//       contents first, so it can be preserved and combined with new data
-		if (!stm32_erase_memory(stm, start / stm->dev->fl_ps, size / stm->dev->fl_ps)) {
+		if (!stm32_erase_memory(stm, spage, npages)) {
 			fprintf(stderr, "Failed to erase memory\n");
 			goto close;
 		}
@@ -503,8 +519,6 @@ int parse_options(int argc, char *argv[]) {
 					return 1;
 				}
 				spage    = strtoul(optarg, NULL, 0);
-				if (npages == 0)
-					npages = 0xFF;
 				break;
 			case 'S':
 				if (spage || npages) {
