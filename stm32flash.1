@@ -1,6 +1,6 @@
 .TH STM32FLASH 1 "2013\-11\-03" STM32FLASH "User command"
 .SH NAME
-stm32flash \- UART flashing utility for STM32
+stm32flash \- UART flashing utility for STM32 and STM32W
 .SH SYNOPSIS
 .B stm32flash
 .RB [ \-cfhjkouv ]
@@ -28,14 +28,14 @@ stm32flash \- UART flashing utility for STM32
 
 .SH DESCRIPTION
 .B stm32flash
-reads or writes the flash memory of STM32.
+reads or writes the flash memory of STM32 and STM32W.
 
-It requires the STM32 to embed a bootloader compliant with ST
+It requires the STM32[W] to embed a bootloader compliant with ST
 application note AN3155.
 .B stm32flash
 uses the serial port
 .I tty_device
-to interact with the bootloader of STM32.
+to interact with the bootloader of STM32[W].
 
 .SH OPTIONS
 .TP
@@ -56,34 +56,37 @@ Specify the format of UART data.
 .I mode
 is a three characters long string where each character specifies, in
 this strict order, character size, parity and stop bits.
-The only value currenly used by standard STM32 bootloader is
-.IR 8e1 .
+The only values currenly used are
+.I 8e1
+for standard STM32 bootloader and
+.I 8n1
+for standard STM32W bootloader.
 Default is
 .IR 8e1 .
 
 .TP
 .BI "\-r" " filename"
-Specify to read the STM32 flash and write its content in
+Specify to read the STM32[W] flash and write its content in
 .I filename
 in raw binary format (see below
 .BR "FORMAT CONVERSION" ).
 
 .TP
 .BI "\-w" " filename"
-Specify to write the STM32 flash with the content of
+Specify to write the STM32[W] flash with the content of
 .IR filename .
 File format can be either raw binary or intel hex (see below
 .BR "FORMAT CONVERSION" ).
 The file format is automatically detected.
 To by\-pass format detection and force binary mode (e.g. to
-write an intel hex content in STM32 flash), use
+write an intel hex content in STM32[W] flash), use
 .B \-f
 option.
 
 .TP
 .B \-u
-Specify to disable write\-protection from STM32 flash.
-The STM32 will be reset after this operation.
+Specify to disable write\-protection from STM32[W] flash.
+The STM32[W] will be reset after this operation.
 
 .TP
 .B \-j
@@ -142,9 +145,9 @@ existing connection. This is useful if the reset fails.
 
 .TP
 .BI "\-i" " GPIO_string"
-Specify the GPIO sequences on the host to force STM32 to enter and
+Specify the GPIO sequences on the host to force STM32[W] to enter and
 exit bootloader mode. GPIO are supposed to be connected from host to
-STM32 beside the UART connection. (See below
+STM32[W] beside the UART connection. (See below
 .B BOOTLOADER GPIO SEQUENCE
 for the format of
 .I GPIO_string
@@ -212,6 +215,23 @@ is "\-4,\-3,3".
 
 The complete command line flag is "\-i 4,\-5,\-3,3:\-4,\-3,3".
 
+STM32W uses pad PA5 to select boot mode; if during reset PA5 is "low" then
+STM32W will enter in bootloader mode; if PA5 is "high" it will execute the
+program in flash.
+
+As example, supposing GPIO_3 connected to PA5 and GPIO_2 to STM32W's reset.
+The command:
+.PD 0
+.RS
+stm32flash \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
+.RE
+provides:
+.IP \(bu 2
+entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high
+.IP \(bu 2
+exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high
+.PD
+
 .SH EXAMPLES
 Get device information:
 .RS
@@ -275,7 +295,7 @@ https://gitorious.org/stm32flash
 and maintained by
 .IR "Tormod Volden <debian.tormod@gmail.com>" .
 
-This man page is written by
+Extension to STM32W and man page are written by
 .IR "Antonio Borneo <borneo.antonio@gmail.com>" .
 
 .SH SEE ALSO
