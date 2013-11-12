@@ -251,5 +251,34 @@ const char* serial_get_setup_str(const serial_t *h)
 }
 
 serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
-	return SERIAL_ERR_UNKNOWN;
+	int bit;
+
+	switch(n) {
+		case GPIO_RTS:
+			bit = level ? SETRTS : CLRRTS;
+			break;
+
+		case GPIO_DTR:
+			bit = level ? SETDTR : CLRDTR;
+			break;
+
+		case GPIO_BRK:
+			if (level == 0)
+				return SERIAL_ERR_OK;
+			if (EscapeCommFunction(h->fd, SETBREAK) == 0)
+				return SERIAL_ERR_SYSTEM;
+			usleep(500000);
+			if (EscapeCommFunction(h->fd, CLRBREAK) == 0)
+				return SERIAL_ERR_SYSTEM;
+			return SERIAL_ERR_OK;
+
+		default:
+			return SERIAL_ERR_NODATA;
+        }
+
+	/* handle RTS/DTR */
+	if (EscapeCommFunction(h->fd, bit) == 0)
+		return SERIAL_ERR_SYSTEM;
+
+	return SERIAL_ERR_OK;
 }

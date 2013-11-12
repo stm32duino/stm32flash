@@ -191,8 +191,9 @@ numbers without sign correspond to GPIO at "high" level.
 The value "n" can either be the GPIO number on the host system or the
 string "rts", "dtr" or "brk". The strings "rts" and "dtr" drive the
 corresponding UART's modem lines RTS and DTR as GPIO.
-The string "brk" forces the UART to send a BREAK sequence on TX line (the
-optional minus sign before "brk" has no effect).
+The string "brk" forces the UART to send a BREAK sequence on TX line;
+after BREAK the UART is returned in normal "non\-break" mode.
+Note: the string "\-brk" has no effect and is ignored.
 .PD
 
 .PD 0

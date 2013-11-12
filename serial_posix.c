@@ -272,6 +272,8 @@ serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
 			break;
 
 		case GPIO_BRK:
+			if (level == 0)
+				return SERIAL_ERR_OK;
 			if (tcsendbreak(h->fd, 1))
 				return SERIAL_ERR_SYSTEM;
 			return SERIAL_ERR_OK;
