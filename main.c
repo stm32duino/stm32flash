@@ -550,10 +550,6 @@ int parse_options(int argc, char *argv[]) {
 				return 1;
 
 			case 'i':
-#if !defined(__linux__)
-				fprintf(stderr, "GPIO control only available in Linux\n");
-				return 1;
-#endif
 				gpio_seq = optarg;
 				break;
 		}

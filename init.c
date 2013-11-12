@@ -55,6 +55,13 @@ static int write_to(const char *filename, const char *value)
 	return 1;
 }
 
+#if !defined(__linux__)
+static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
+{
+	fprintf(stderr, "GPIO control only available in Linux\n");
+	return 0;
+}
+#else
 static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 {
 	char num[16]; /* sized to carry MAX_INT */
@@ -88,6 +95,7 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 
 	return write_to(file, level ? "high" : "low");
 }
+#endif
 
 static int release_gpio(int n)
 {
