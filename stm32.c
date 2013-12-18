@@ -430,8 +430,12 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		uint8_t pg_byte;
  		uint8_t cs = 0;
  
- 		stm32_send_byte(stm, pages >> 8); // Number of pages to be erased, two bytes, MSB first
- 		stm32_send_byte(stm, pages & 0xFF);
+		pg_byte = pages >> 8;
+		stm32_send_byte(stm, pg_byte); // Number of pages to be erased, two bytes, MSB first
+		cs ^= pg_byte;
+		pg_byte = pages & 0xFF;
+		stm32_send_byte(stm, pg_byte);
+		cs ^= pg_byte;
  
  		for (pg_num = 0; pg_num <= pages; pg_num++) {
  			pg_byte = pg_num >> 8;
@@ -441,7 +445,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
  			cs ^= pg_byte;
  			stm32_send_byte(stm, pg_byte);
  		}
- 		stm32_send_byte(stm, 0x00);  // Ought to need to hand over a valid checksum here...but 0 seems to work!
+		stm32_send_byte(stm, cs);
  	
  		if (stm32_read_byte(stm) != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
