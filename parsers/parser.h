@@ -21,7 +21,13 @@
 #ifndef _H_PARSER
 #define _H_PARSER
 
-typedef struct parser     parser_t;
+enum parser_err {
+	PARSER_ERR_OK,
+	PARSER_ERR_SYSTEM,
+	PARSER_ERR_INVALID_FILE,
+	PARSER_ERR_WRONLY,
+	PARSER_ERR_RDONLY
+};
 typedef enum   parser_err parser_err_t;
 
 struct parser {
@@ -33,14 +39,7 @@ struct parser {
 	parser_err_t (*read )(void *storage, void *data, unsigned int *len);		/* read a block of data */
 	parser_err_t (*write)(void *storage, void *data, unsigned int len);		/* write a block of data */
 };
-
-enum parser_err {
-	PARSER_ERR_OK,
-	PARSER_ERR_SYSTEM,
-	PARSER_ERR_INVALID_FILE,
-	PARSER_ERR_WRONLY,
-	PARSER_ERR_RDONLY
-};
+typedef struct parser     parser_t;
 
 static inline const char* parser_errstr(parser_err_t err) {
 	switch(err) {
