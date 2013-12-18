@@ -96,18 +96,18 @@ void         serial_close(serial_t *h);
 void         serial_flush(const serial_t *h);
 serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bits_t bits, const serial_parity_t parity, const serial_stopbit_t stopbit);
 serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int len);
-serial_err_t serial_read (const serial_t *h, const void *buffer, unsigned int len);
+serial_err_t serial_read (const serial_t *h, void *buffer, unsigned int len);
 const char*  serial_get_setup_str(const serial_t *h);
 serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level);
 
 /* common helper functions */
 serial_baud_t      serial_get_baud       (const unsigned int baud);
-const unsigned int serial_get_baud_int   (const serial_baud_t baud);
+unsigned int serial_get_baud_int   (const serial_baud_t baud);
 serial_bits_t      serial_get_bits       (const char *mode);
-const unsigned int serial_get_bits_int   (const serial_bits_t bits);
+unsigned int serial_get_bits_int   (const serial_bits_t bits);
 serial_parity_t    serial_get_parity     (const char *mode);
-const char         serial_get_parity_str (const serial_parity_t parity);
+char         serial_get_parity_str (const serial_parity_t parity);
 serial_stopbit_t   serial_get_stopbit    (const char *mode);
-const unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit);
+unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit);
 
 #endif

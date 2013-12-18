@@ -215,7 +215,7 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 	return SERIAL_ERR_OK;
 }
 
-serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len) 
+serial_err_t serial_read(const serial_t *h, void *buffer, unsigned int len)
 {
 	assert(h && (h->fd != INVALID_HANDLE_VALUE) && h->configured);
 

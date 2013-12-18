@@ -23,7 +23,7 @@
 /* detect CPU endian */
 char cpu_le() {
 	const uint32_t cpu_le_test = 0x12345678;
-	return ((unsigned char*)&cpu_le_test)[0] == 0x78;
+	return ((const unsigned char*)&cpu_le_test)[0] == 0x78;
 }
 
 uint32_t be_u32(const uint32_t v) {

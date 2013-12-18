@@ -213,7 +213,7 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 	assert(h && h->fd > -1 && h->configured);
 
 	ssize_t r;
-	uint8_t *pos = (uint8_t*)buffer;
+	const uint8_t *pos = (const uint8_t*)buffer;
 
 	while(len > 0) {
 		r = write(h->fd, pos, len);
@@ -226,7 +226,7 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 	return SERIAL_ERR_OK;
 }
 
-serial_err_t serial_read(const serial_t *h, const void *buffer, unsigned int len) {
+serial_err_t serial_read(const serial_t *h, void *buffer, unsigned int len) {
 	assert(h && h->fd > -1 && h->configured);
 
 	ssize_t r;
