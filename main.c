@@ -547,7 +547,7 @@ int parse_options(int argc, char *argv[]) {
 
 			case 'h':
 				show_help(argv[0]);
-				return 1;
+				exit(0);
 
 			case 'i':
 				gpio_seq = optarg;
