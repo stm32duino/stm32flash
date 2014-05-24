@@ -120,7 +120,6 @@ const stm32_dev_t devices[] = {
 };
 
 /* internal functions */
-uint8_t stm32_read_byte(const stm32_t *stm);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
 
@@ -135,7 +134,8 @@ static void stm32_send(const stm32_t *stm, uint8_t *byte, unsigned int len)
 	}
 }
 
-uint8_t stm32_read_byte(const stm32_t *stm) {
+static uint8_t stm32_get_ack(const stm32_t *stm)
+{
 	uint8_t byte;
 	serial_err_t err;
 	err = serial_read(stm->serial, &byte, 1);
@@ -147,6 +147,8 @@ uint8_t stm32_read_byte(const stm32_t *stm) {
 	return byte;
 }
 
+#define stm32_read_byte stm32_get_ack
+
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	int ret;
 	uint8_t buf[2];
@@ -154,7 +156,7 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	buf[0] = cmd;
 	buf[1] = cmd ^ 0xFF;
 	stm32_send(stm, buf, 2);
-	ret = stm32_read_byte(stm);
+	ret = stm32_get_ack(stm);
 	if (ret == STM32_ACK) {
 		return 1;
 	} else if (ret == STM32_NACK) {
@@ -166,7 +168,7 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 }
 
 stm32_t* stm32_init(const serial_t *serial, const char init) {
-	uint8_t len, val, buf[1];
+	uint8_t len, val, buf[3];
 	stm32_t *stm;
 
 	stm      = calloc(sizeof(stm32_t), 1);
@@ -177,7 +179,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	if (init) {
 		buf[0] = STM32_CMD_INIT;
 		stm32_send(stm, buf, 1);
-		if (stm32_read_byte(stm) != STM32_ACK) {
+		if (stm32_get_ack(stm) != STM32_ACK) {
 			stm32_close(stm);
 			fprintf(stderr, "Failed to get init ACK from device\n");
 			return NULL;
@@ -221,7 +223,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 				"We will skip unknown byte 0x%02x\n", val);
 		}
 	}
-	if (stm32_read_byte(stm) != STM32_ACK) {
+	if (stm32_get_ack(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -240,10 +242,12 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 		return NULL;
 	}
 
-	stm->version = stm32_read_byte(stm);
-	stm->option1 = stm32_read_byte(stm);
-	stm->option2 = stm32_read_byte(stm);
-	if (stm32_read_byte(stm) != STM32_ACK) {
+	if (serial_read(stm->serial, buf, 3) != SERIAL_ERR_OK)
+		return NULL;
+	stm->version = buf[0];
+	stm->option1 = buf[1];
+	stm->option2 = buf[2];
+	if (stm32_get_ack(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -267,7 +271,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 			fprintf(stderr, " %02x", stm32_read_byte(stm));
 		fprintf(stderr, "\n");
 	}
-	if (stm32_read_byte(stm) != STM32_ACK) {
+	if (stm32_get_ack(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -310,7 +314,8 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	stm32_send(stm, buf, 5);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return 0;
 
 	if (!stm32_send_command(stm, len - 1))
 		return 0;
@@ -343,7 +348,8 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	stm32_send(stm, buf, 5);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return 0;
 
 	aligned_len = (len + 3) & ~3;
 	cs = aligned_len - 1;
@@ -361,7 +367,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	if (serial_write(stm->serial, buf, aligned_len + 2) != SERIAL_ERR_OK)
 		return 0;
 
-	return stm32_read_byte(stm) == STM32_ACK;
+	return stm32_get_ack(stm) == STM32_ACK;
 }
 
 char stm32_wunprot_memory(const stm32_t *stm) {
@@ -429,7 +435,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 			buf[1] = 0xFF;
 			buf[2] = 0x00;	/* checksum */
 			stm32_send(stm, buf, 3);
-			if (stm32_read_byte(stm) != STM32_ACK) {
+			if (stm32_get_ack(stm) != STM32_ACK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
 				return 0;
 			}
@@ -466,7 +472,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		stm32_send(stm, buf, i);
 		free(buf);
  	
- 		if (stm32_read_byte(stm) != STM32_ACK) {
+		if (stm32_get_ack(stm) != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 			return 0;
  		}
@@ -496,7 +502,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		buf[i++] = cs;
 		stm32_send(stm, buf, i);
 		free(buf);
-		return stm32_read_byte(stm) == STM32_ACK;
+		return stm32_get_ack(stm) == STM32_ACK;
 	}
 }
 
@@ -553,7 +559,7 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	stm32_send(stm, buf, 5);
 
-	return stm32_read_byte(stm) == STM32_ACK;
+	return stm32_get_ack(stm) == STM32_ACK;
 }
 
 char stm32_reset_device(const stm32_t *stm) {
