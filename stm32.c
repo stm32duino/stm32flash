@@ -120,17 +120,9 @@ const stm32_dev_t devices[] = {
 };
 
 /* internal functions */
-uint8_t stm32_gen_cs(const uint32_t v);
 uint8_t stm32_read_byte(const stm32_t *stm);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
-
-uint8_t stm32_gen_cs(const uint32_t v) {
-	return  ((v & 0xFF000000) >> 24) ^
-		((v & 0x00FF0000) >> 16) ^
-		((v & 0x0000FF00) >>  8) ^
-		((v & 0x000000FF) >>  0);
-}
 
 static void stm32_send(const stm32_t *stm, uint8_t *byte, unsigned int len)
 {
