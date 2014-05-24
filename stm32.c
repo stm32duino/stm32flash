@@ -121,7 +121,6 @@ const stm32_dev_t devices[] = {
 
 /* internal functions */
 uint8_t stm32_gen_cs(const uint32_t v);
-void    stm32_send_byte(const stm32_t *stm, uint8_t byte);
 uint8_t stm32_read_byte(const stm32_t *stm);
 char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
@@ -133,11 +132,12 @@ uint8_t stm32_gen_cs(const uint32_t v) {
 		((v & 0x000000FF) >>  0);
 }
 
-void stm32_send_byte(const stm32_t *stm, uint8_t byte) {	
+static void stm32_send(const stm32_t *stm, uint8_t *byte, unsigned int len)
+{
 	serial_err_t err;
-	err = serial_write(stm->serial, &byte, 1);
+	err = serial_write(stm->serial, byte, len);
 	if (err != SERIAL_ERR_OK) {
-		fprintf(stderr, "Failed to send byte: ");
+		fprintf(stderr, "Failed to send: ");
 		perror("send_byte");
 		exit(1);
 	}
@@ -157,9 +157,11 @@ uint8_t stm32_read_byte(const stm32_t *stm) {
 
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	int ret;
+	uint8_t buf[2];
 
-	stm32_send_byte(stm, cmd);
-	stm32_send_byte(stm, cmd ^ 0xFF);
+	buf[0] = cmd;
+	buf[1] = cmd ^ 0xFF;
+	stm32_send(stm, buf, 2);
 	ret = stm32_read_byte(stm);
 	if (ret == STM32_ACK) {
 		return 1;
@@ -172,7 +174,7 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 }
 
 stm32_t* stm32_init(const serial_t *serial, const char init) {
-	uint8_t len, val;
+	uint8_t len, val, buf[1];
 	stm32_t *stm;
 
 	stm      = calloc(sizeof(stm32_t), 1);
@@ -181,7 +183,8 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	stm->serial = serial;
 
 	if (init) {
-		stm32_send_byte(stm, STM32_CMD_INIT);
+		buf[0] = STM32_CMD_INIT;
+		stm32_send(stm, buf, 1);
 		if (stm32_read_byte(stm) != STM32_ACK) {
 			stm32_close(stm);
 			fprintf(stderr, "Failed to get init ACK from device\n");
@@ -296,15 +299,11 @@ void stm32_close(stm32_t *stm) {
 }
 
 char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
-	uint8_t cs;
-	unsigned int i;
+	uint8_t buf[5];
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
 	assert(address % 4 == 0);
-
-	address = be_u32      (address);
-	cs      = stm32_gen_cs(address);
 
 	if (stm->cmd->rm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
@@ -312,16 +311,17 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	}
 
 	if (!stm32_send_command(stm, stm->cmd->rm)) return 0;
-	if (serial_write(stm->serial, &address, 4) != SERIAL_ERR_OK)
+
+	buf[0] = address >> 24;
+	buf[1] = (address >> 16) & 0xFF;
+	buf[2] = (address >> 8) & 0xFF;
+	buf[3] = address & 0xFF;
+	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+	stm32_send(stm, buf, 5);
+	if (stm32_read_byte(stm) != STM32_ACK) return 0;
+
+	if (!stm32_send_command(stm, len - 1))
 		return 0;
-
-	stm32_send_byte(stm, cs);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
-
-	i = len - 1;
-	stm32_send_byte(stm, i);
-	stm32_send_byte(stm, i ^ 0xFF);
-	if (stm32_read_byte(stm) != STM32_ACK) return 0;
 
 	if (serial_read(stm->serial, data, len) != SERIAL_ERR_OK)
 		return 0;
@@ -330,16 +330,12 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 }
 
 char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data[], unsigned int len) {
-	uint8_t cs;
-	unsigned int i;
-	int c, extra;
+	uint8_t cs, buf[256 + 2];
+	unsigned int i, aligned_len;
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
 	assert(address % 4 == 0);
-
-	address = be_u32      (address);
-	cs      = stm32_gen_cs(address);
 
 	if (stm->cmd->wm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE command not implemented in bootloader.\n");
@@ -348,32 +344,31 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 
 	/* send the address and checksum */
 	if (!stm32_send_command(stm, stm->cmd->wm)) return 0;
-	if (serial_write(stm->serial, &address, 4) != SERIAL_ERR_OK)
-		return 0;
 
-	stm32_send_byte(stm, cs);
+	buf[0] = address >> 24;
+	buf[1] = (address >> 16) & 0xFF;
+	buf[2] = (address >> 8) & 0xFF;
+	buf[3] = address & 0xFF;
+	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+	stm32_send(stm, buf, 5);
 	if (stm32_read_byte(stm) != STM32_ACK) return 0;
 
-	/* setup the cs and send the length */
-	extra = len % 4;
-	cs = len - 1 + extra;
-	stm32_send_byte(stm, cs);
-
-	/* write the data and build the checksum */
-	for(i = 0; i < len; ++i)
+	aligned_len = (len + 3) & ~3;
+	cs = aligned_len - 1;
+	buf[0] = aligned_len - 1;
+	for (i = 0; i < len; i++) {
 		cs ^= data[i];
-
-	if (serial_write(stm->serial, data, len) != SERIAL_ERR_OK)
+		buf[i + 1] = data[i];
+	}
+	/* padding data */
+	for (i = len; i < aligned_len; i++) {
+		cs ^= 0xFF;
+		buf[i + 1] = 0xFF;
+	}
+	buf[aligned_len + 1] = cs;
+	if (serial_write(stm->serial, buf, aligned_len + 2) != SERIAL_ERR_OK)
 		return 0;
 
-	/* write the alignment padding */
-	for(c = 0; c < extra; ++c) {
-		stm32_send_byte(stm, 0xFF);
-		cs ^= 0xFF;
-	}
-
-	/* send the checksum */
-	stm32_send_byte(stm, cs);
 	return stm32_read_byte(stm) == STM32_ACK;
 }
 
@@ -435,9 +430,13 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		if (stm->pid == 0x416 && pages == 0xFF) pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
 
 		if (pages == 0xFF) {
-			stm32_send_byte(stm, 0xFF);
-			stm32_send_byte(stm, 0xFF); // 0xFFFF the magic number for mass erase
-			stm32_send_byte(stm, 0x00); // 0x00 the XOR of those two bytes as a checksum
+			uint8_t buf[3];
+
+			/* 0xFFFF the magic number for mass erase */
+			buf[0] = 0xFF;
+			buf[1] = 0xFF;
+			buf[2] = 0x00;	/* checksum */
+			stm32_send(stm, buf, 3);
 			if (stm32_read_byte(stm) != STM32_ACK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
 				return 0;
@@ -448,23 +447,32 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		uint16_t pg_num;
 		uint8_t pg_byte;
  		uint8_t cs = 0;
+		uint8_t *buf;
+		int i = 0;
+
+		buf = malloc(2 + 2 * pages + 1);
+		if (!buf)
+			return 0;
  
+		/* Number of pages to be erased - 1, two bytes, MSB first */
 		pg_byte = (pages - 1) >> 8;
-		stm32_send_byte(stm, pg_byte); // Number of pages to be erased - 1, two bytes, MSB first
+		buf[i++] = pg_byte;
 		cs ^= pg_byte;
 		pg_byte = (pages - 1) & 0xFF;
-		stm32_send_byte(stm, pg_byte);
+		buf[i++] = pg_byte;
 		cs ^= pg_byte;
  
 		for (pg_num = spage; pg_num < spage + pages; pg_num++) {
  			pg_byte = pg_num >> 8;
  			cs ^= pg_byte;
- 			stm32_send_byte(stm, pg_byte);
+			buf[i++] = pg_byte;
  			pg_byte = pg_num & 0xFF;
  			cs ^= pg_byte;
- 			stm32_send_byte(stm, pg_byte);
+			buf[i++] = pg_byte;
  		}
-		stm32_send_byte(stm, cs);
+		buf[i++] = cs;
+		stm32_send(stm, buf, i);
+		free(buf);
  	
  		if (stm32_read_byte(stm) != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
@@ -480,13 +488,22 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 	} else {
 		uint8_t cs = 0;
 		uint8_t pg_num;
-		stm32_send_byte(stm, pages-1);
+		uint8_t *buf;
+		int i = 0;
+
+		buf = malloc(1 + pages + 1);
+		if (!buf)
+			return 0;
+
+		buf[i++] = pages - 1;
 		cs ^= (pages-1);
 		for (pg_num = spage; pg_num < (pages + spage); pg_num++) {
-			stm32_send_byte(stm, pg_num);
+			buf[i++] = pg_num;
 			cs ^= pg_num;
 		}
-		stm32_send_byte(stm, cs);
+		buf[i++] = cs;
+		stm32_send(stm, buf, i);
+		free(buf);
 		return stm32_read_byte(stm) == STM32_ACK;
 	}
 }
@@ -528,10 +545,7 @@ char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8
 }
 
 char stm32_go(const stm32_t *stm, uint32_t address) {
-	uint8_t cs;
-
-	address = be_u32      (address);
-	cs      = stm32_gen_cs(address);
+	uint8_t buf[5];
 
         if (stm->cmd->go == STM32_CMD_ERR) {
                 fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
@@ -539,8 +553,13 @@ char stm32_go(const stm32_t *stm, uint32_t address) {
         }
 
 	if (!stm32_send_command(stm, stm->cmd->go)) return 0;
-	serial_write(stm->serial, &address, 4);
-	serial_write(stm->serial, &cs     , 1);
+
+	buf[0] = address >> 24;
+	buf[1] = (address >> 16) & 0xFF;
+	buf[2] = (address >> 8) & 0xFF;
+	buf[3] = address & 0xFF;
+	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+	stm32_send(stm, buf, 5);
 
 	return stm32_read_byte(stm) == STM32_ACK;
 }
