@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "stm32.h"
 #include "utils.h"
@@ -42,6 +43,8 @@
 #define STM32_CMD_RP	0x82	/* readout protect */
 #define STM32_CMD_UR	0x92	/* readout unprotect */
 #define STM32_CMD_ERR	0xFF	/* not a valid command */
+
+#define STM32_RESYNC_TIMEOUT	10	/* seconds */
 
 struct stm32_cmd {
 	uint8_t get;
@@ -147,8 +150,6 @@ static uint8_t stm32_get_ack(const stm32_t *stm)
 	return byte;
 }
 
-#define stm32_read_byte stm32_get_ack
-
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	int ret;
 	uint8_t buf[2];
@@ -167,9 +168,81 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 	return 0;
 }
 
+/* if we have lost sync, send a wrong command and expect a NACK */
+static int stm32_resync(const stm32_t *stm)
+{
+	serial_err_t err;
+	uint8_t buf[2], ack;
+	int i = 0;
+
+	buf[0] = STM32_CMD_ERR;
+	buf[1] = STM32_CMD_ERR ^ 0xFF;
+	while (i++ < STM32_RESYNC_TIMEOUT) {
+		err = serial_write(stm->serial, buf, 2);
+		if (err != SERIAL_ERR_OK) {
+			sleep(1);
+			continue;
+		}
+		err = serial_read(stm->serial, &ack, 1);
+		if (err != SERIAL_ERR_OK) {
+			sleep(1);
+			continue;
+		}
+		if (ack == STM32_NACK)
+			return 1;
+		sleep(1);
+	}
+	return 0;
+}
+
+/*
+ * some command receive reply frame with variable lenght, and lenght is
+ * embedded in reply frame itself.
+ * We can guess the lenght, but if we guess wrong the protocol gets out
+ * of sync.
+ * Use resync for frame oriented interfaces (e.g. I2C) and byte-by-byte
+ * read for byte oriented interfaces (e.g. UART).
+ *
+ * to run safely, data buffer should be allocated for 256+1 bytes
+ *
+ * len is value of the first byte in the frame.
+ */
+static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
+				uint8_t *data, unsigned int len) {
+	serial_err_t err;
+
+	if (!stm32_send_command(stm, cmd))
+		return 0;
+	if (1) { /* interface is UART */
+		err = serial_read(stm->serial, data, 1);
+		if (err != SERIAL_ERR_OK)
+			return 0;
+		len = data[0];
+		err = serial_read(stm->serial, data + 1, len + 1);
+		return err == SERIAL_ERR_OK;
+	}
+	data[0] = 0;
+	err = serial_read(stm->serial, data, len + 2);
+	if (data[0] == 0 && err != SERIAL_ERR_OK)
+		return 0;
+	if (len == data[0])
+		return 1;
+
+	fprintf(stderr, "Re sync\n");
+	if (stm32_resync(stm) == 0)
+		return 0;
+
+	len = data[0];
+	if (!stm32_send_command(stm, cmd))
+		return 0;
+	err = serial_read(stm->serial, data, len + 2);
+	return err == SERIAL_ERR_OK;
+}
+
 stm32_t* stm32_init(const serial_t *serial, const char init) {
-	uint8_t len, val, buf[3];
+	uint8_t len, val, buf[257];
 	stm32_t *stm;
+	int i;
 
 	stm      = calloc(sizeof(stm32_t), 1);
 	stm->cmd = malloc(sizeof(stm32_cmd_t));
@@ -187,11 +260,12 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	}
 
 	/* get the bootloader information */
-	if (!stm32_send_command(stm, STM32_CMD_GET)) return 0;
-	len              = stm32_read_byte(stm) + 1;
-	stm->bl_version  = stm32_read_byte(stm); --len;
-	while (len-- > 0) {
-		val = stm32_read_byte(stm);
+	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, 10))
+		return NULL;
+	len = buf[0] + 1;
+	stm->bl_version = buf[1];
+	for (i = 1; i < len; i++) {
+		val = buf[i + 1];
 		switch (val) {
 		case STM32_CMD_GET:
 			stm->cmd->get = val; break;
@@ -253,22 +327,21 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	}
 
 	/* get the device ID */
-	if (!stm32_send_command(stm, stm->cmd->gid)) {
+	if (!stm32_guess_len_cmd(stm, stm->cmd->gid, buf, 1)) {
 		stm32_close(stm);
 		return NULL;
 	}
-	len = stm32_read_byte(stm) + 1;
+	len = buf[0] + 1;
 	if (len < 2) {
 		stm32_close(stm);
 		fprintf(stderr, "Only %d bytes sent in the PID, unknown/unsupported device\n", len);
 		return NULL;
 	}
-	stm->pid = (stm32_read_byte(stm) << 8) | stm32_read_byte(stm);
-	len -= 2;
-	if (len > 0) {
+	stm->pid = (buf[1] << 8) | buf[2];
+	if (len > 2) {
 		fprintf(stderr, "This bootloader returns %d extra bytes in PID:", len);
-		while (len-- > 0)
-			fprintf(stderr, " %02x", stm32_read_byte(stm));
+		for (i = 2; i <= len ; i++)
+			fprintf(stderr, " %02x", buf[i]);
 		fprintf(stderr, "\n");
 	}
 	if (stm32_get_ack(stm) != STM32_ACK) {
