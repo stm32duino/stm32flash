@@ -129,9 +129,11 @@ char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
 
 static void stm32_send(const stm32_t *stm, uint8_t *byte, unsigned int len)
 {
-	serial_err_t err;
-	err = serial_write(stm->serial, byte, len);
-	if (err != SERIAL_ERR_OK) {
+	struct port_interface *port = stm->port;
+	int err;
+
+	err = port->write(port, byte, len);
+	if (err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send: ");
 		perror("send_byte");
 		exit(1);
@@ -140,10 +142,12 @@ static void stm32_send(const stm32_t *stm, uint8_t *byte, unsigned int len)
 
 static uint8_t stm32_get_ack(const stm32_t *stm)
 {
+	struct port_interface *port = stm->port;
 	uint8_t byte;
-	serial_err_t err;
-	err = serial_read(stm->serial, &byte, 1);
-	if (err != SERIAL_ERR_OK) {
+	int err;
+
+	err = port->read(port, &byte, 1);
+	if (err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to read byte: ");
 		perror("read_byte");
 		exit(1);
@@ -172,20 +176,21 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd) {
 /* if we have lost sync, send a wrong command and expect a NACK */
 static int stm32_resync(const stm32_t *stm)
 {
-	serial_err_t err;
+	struct port_interface *port = stm->port;
+	int err;
 	uint8_t buf[2], ack;
 	int i = 0;
 
 	buf[0] = STM32_CMD_ERR;
 	buf[1] = STM32_CMD_ERR ^ 0xFF;
 	while (i++ < STM32_RESYNC_TIMEOUT) {
-		err = serial_write(stm->serial, buf, 2);
-		if (err != SERIAL_ERR_OK) {
+		err = port->write(port, buf, 2);
+		if (err != PORT_ERR_OK) {
 			sleep(1);
 			continue;
 		}
-		err = serial_read(stm->serial, &ack, 1);
-		if (err != SERIAL_ERR_OK) {
+		err = port->read(port, &ack, 1);
+		if (err != PORT_ERR_OK) {
 			sleep(1);
 			continue;
 		}
@@ -210,21 +215,22 @@ static int stm32_resync(const stm32_t *stm)
  */
 static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 				uint8_t *data, unsigned int len) {
-	serial_err_t err;
+	struct port_interface *port = stm->port;
+	int err;
 
 	if (!stm32_send_command(stm, cmd))
 		return 0;
 	if (1) { /* interface is UART */
-		err = serial_read(stm->serial, data, 1);
-		if (err != SERIAL_ERR_OK)
+		err = port->read(port, data, 1);
+		if (err != PORT_ERR_OK)
 			return 0;
 		len = data[0];
-		err = serial_read(stm->serial, data + 1, len + 1);
-		return err == SERIAL_ERR_OK;
+		err = port->read(port, data + 1, len + 1);
+		return err == PORT_ERR_OK;
 	}
 	data[0] = 0;
-	err = serial_read(stm->serial, data, len + 2);
-	if (data[0] == 0 && err != SERIAL_ERR_OK)
+	err = port->read(port, data, len + 2);
+	if (data[0] == 0 && err != PORT_ERR_OK)
 		return 0;
 	if (len == data[0])
 		return 1;
@@ -236,13 +242,12 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	len = data[0];
 	if (!stm32_send_command(stm, cmd))
 		return 0;
-	err = serial_read(stm->serial, data, len + 2);
-	return err == SERIAL_ERR_OK;
+	err = port->read(port, data, len + 2);
+	return err == PORT_ERR_OK;
 }
 
 stm32_t *stm32_init(struct port_interface *port, const char init)
 {
-	const serial_t *serial = (serial_t *)port->private;
 	uint8_t len, val, buf[257];
 	stm32_t *stm;
 	int i;
@@ -250,7 +255,6 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	stm      = calloc(sizeof(stm32_t), 1);
 	stm->cmd = malloc(sizeof(stm32_cmd_t));
 	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
-	stm->serial = serial;
 	stm->port = port;
 
 	if (init) {
@@ -320,7 +324,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		return NULL;
 	}
 
-	if (serial_read(stm->serial, buf, 3) != SERIAL_ERR_OK)
+	if (port->read(port, buf, 3) != PORT_ERR_OK)
 		return NULL;
 	stm->version = buf[0];
 	stm->option1 = buf[1];
@@ -372,6 +376,7 @@ void stm32_close(stm32_t *stm) {
 }
 
 char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
+	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 	assert(len > 0 && len < 257);
 
@@ -397,13 +402,14 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	if (!stm32_send_command(stm, len - 1))
 		return 0;
 
-	if (serial_read(stm->serial, data, len) != SERIAL_ERR_OK)
+	if (port->read(port, data, len) != PORT_ERR_OK)
 		return 0;
 
 	return 1;
 }
 
 char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data[], unsigned int len) {
+	struct port_interface *port = stm->port;
 	uint8_t cs, buf[256 + 2];
 	unsigned int i, aligned_len;
 	assert(len > 0 && len < 257);
@@ -441,7 +447,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 		buf[i + 1] = 0xFF;
 	}
 	buf[aligned_len + 1] = cs;
-	if (serial_write(stm->serial, buf, aligned_len + 2) != SERIAL_ERR_OK)
+	if (port->write(port, buf, aligned_len + 2) != PORT_ERR_OK)
 		return 0;
 
 	return stm32_get_ack(stm) == STM32_ACK;
