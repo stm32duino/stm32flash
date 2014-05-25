@@ -21,11 +21,27 @@
 #ifndef _H_PORT
 #define _H_PORT
 
+typedef enum {
+	PORT_ERR_OK = 0,
+	PORT_ERR_NOT_RECOGNIZED,
+	PORT_ERR_UNKNOWN,
+} port_err_t;
+
+/* flags */
+#define PORT_BYTE	(1 << 0)	/* byte (not frame) oriented */
+
 /* all options and flags used to open and configure an interface */
 struct port_options {
 	const char *device;
 	serial_baud_t baudRate;
 	const char *serial_mode;
+};
+
+struct port_interface {
+	const char *name;
+	unsigned flags;
+	port_err_t (*open)(struct port_interface *port, struct port_options *ops);
+	void *private;
 };
 
 #endif

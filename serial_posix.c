@@ -20,6 +20,7 @@
 
 #include <stdlib.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 #include <termios.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
 #include <sys/ioctl.h>
 
 #include "serial.h"
+#include "port.h"
 
 struct serial {
 	int			fd;
@@ -291,3 +293,46 @@ serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
 
 	return SERIAL_ERR_OK;
 }
+
+static port_err_t serial_posix_open(struct port_interface *port, struct port_options *ops)
+{
+	serial_t *h;
+
+	/* 1. check device name match */
+	if (strncmp(ops->device, "/dev/tty", strlen("/dev/tty")))
+		return PORT_ERR_NOT_RECOGNIZED;
+
+	/* 2. check options */
+	if (ops->baudRate == SERIAL_BAUD_INVALID)
+		return PORT_ERR_UNKNOWN;
+	if (serial_get_bits(ops->serial_mode) == SERIAL_BITS_INVALID)
+		return PORT_ERR_UNKNOWN;
+	if (serial_get_parity(ops->serial_mode) == SERIAL_PARITY_INVALID)
+		return PORT_ERR_UNKNOWN;
+	if (serial_get_stopbit(ops->serial_mode) == SERIAL_STOPBIT_INVALID)
+		return PORT_ERR_UNKNOWN;
+
+	/* 3. open it */
+	h = serial_open(ops->device);
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	/* 4. set options */
+	if (serial_setup(h, ops->baudRate,
+	    serial_get_bits(ops->serial_mode),
+	    serial_get_parity(ops->serial_mode),
+	    serial_get_stopbit(ops->serial_mode)
+	   ) != SERIAL_ERR_OK) {
+		serial_close(h);
+		return PORT_ERR_UNKNOWN;
+	}
+
+	port->private = h;
+	return PORT_ERR_OK;
+}
+
+struct port_interface port_serial = {
+	.name	= "serial_posix",
+	.flags	= PORT_BYTE,
+	.open	= serial_posix_open,
+};

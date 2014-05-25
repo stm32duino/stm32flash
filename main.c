@@ -77,7 +77,10 @@ uint32_t	readwrite_len	= 0;
 int  parse_options(int argc, char *argv[]);
 void show_help(char *name);
 
+extern struct port_interface port_serial;
+
 int main(int argc, char* argv[]) {
+	struct port_interface *port = &port_serial;
 	int ret = 1;
 	parser_err_t perr;
 	FILE *diag = stdout;
@@ -137,23 +140,12 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	serial = serial_open(port_opts.device);
-	if (!serial) {
+	if (port->open(port, &port_opts) != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to open serial port: ");
 		perror(port_opts.device);
 		goto close;
 	}
-
-	if (serial_setup(
-		serial,
-		port_opts.baudRate,
-		serial_get_bits(port_opts.serial_mode),
-		serial_get_parity(port_opts.serial_mode),
-		serial_get_stopbit(port_opts.serial_mode)
-	) != SERIAL_ERR_OK) {
-		perror(port_opts.device);
-		goto close;
-	}
+	serial = (serial_t *)port->private;
 
 	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
 	if (init_flag && init_bl_entry(serial, gpio_seq) == 0) goto close;
