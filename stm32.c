@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include "stm32.h"
+#include "port.h"
 #include "utils.h"
 
 #define STM32_ACK	0x79
@@ -239,7 +240,9 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	return err == SERIAL_ERR_OK;
 }
 
-stm32_t* stm32_init(const serial_t *serial, const char init) {
+stm32_t *stm32_init(struct port_interface *port, const char init)
+{
+	const serial_t *serial = (serial_t *)port->private;
 	uint8_t len, val, buf[257];
 	stm32_t *stm;
 	int i;
@@ -248,6 +251,7 @@ stm32_t* stm32_init(const serial_t *serial, const char init) {
 	stm->cmd = malloc(sizeof(stm32_cmd_t));
 	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
 	stm->serial = serial;
+	stm->port = port;
 
 	if (init) {
 		buf[0] = STM32_CMD_INIT;

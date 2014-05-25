@@ -149,7 +149,9 @@ int main(int argc, char* argv[]) {
 
 	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
 	if (init_flag && init_bl_entry(serial, gpio_seq) == 0) goto close;
-	if (!(stm = stm32_init(serial, init_flag))) goto close;
+	stm = stm32_init(port, init_flag);
+	if (!stm)
+		goto close;
 
 	fprintf(diag, "Version      : 0x%02x\n", stm->bl_version);
 	fprintf(diag, "Option 1     : 0x%02x\n", stm->option1);
