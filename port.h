@@ -49,4 +49,6 @@ struct port_interface {
 	void *private;
 };
 
+port_err_t port_open(struct port_options *ops, struct port_interface **outport);
+
 #endif

@@ -76,10 +76,8 @@ uint32_t	readwrite_len	= 0;
 int  parse_options(int argc, char *argv[]);
 void show_help(char *name);
 
-extern struct port_interface port_serial;
-
 int main(int argc, char* argv[]) {
-	struct port_interface *port = &port_serial;
+	struct port_interface *port = NULL;
 	int ret = 1;
 	parser_err_t perr;
 	FILE *diag = stdout;
@@ -139,9 +137,8 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	if (port->open(port, &port_opts) != PORT_ERR_OK) {
-		fprintf(stderr, "Failed to open serial port: ");
-		perror(port_opts.device);
+	if (port_open(&port_opts, &port) != PORT_ERR_OK) {
+		fprintf(stderr, "Failed to open port: %s\n", port_opts.device);
 		goto close;
 	}
 
@@ -411,7 +408,8 @@ close:
 
 	if (p_st  ) parser->close(p_st);
 	if (stm   ) stm32_close  (stm);
-	port->close(port);
+	if (port)
+		port->close(port);
 
 	fprintf(diag, "\n");
 	return ret;

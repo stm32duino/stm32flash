@@ -3,7 +3,7 @@ CFLAGS += -Wall -g
 
 INSTALL = install
 
-OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o init.o
+OBJS = main.o utils.o stm32.o serial_common.o serial_platform.o init.o port.o
 
 LIBOBJS = parsers/parsers.a
 
