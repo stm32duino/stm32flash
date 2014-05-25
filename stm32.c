@@ -220,7 +220,8 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 
 	if (!stm32_send_command(stm, cmd))
 		return 0;
-	if (1) { /* interface is UART */
+	if (port->flags & PORT_BYTE) {
+		/* interface is UART-like */
 		err = port->read(port, data, 1);
 		if (err != PORT_ERR_OK)
 			return 0;
