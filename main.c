@@ -33,6 +33,7 @@
 #include "serial.h"
 #include "stm32.h"
 #include "parsers/parser.h"
+#include "port.h"
 
 #include "parsers/binary.h"
 #include "parsers/hex.h"
@@ -47,9 +48,11 @@ void		*p_st		= NULL;
 parser_t	*parser		= NULL;
 
 /* settings */
-char		*device		= NULL;
-serial_baud_t	baudRate	= SERIAL_BAUD_57600;
-char		*serial_mode	= "8e1";
+struct port_options port_opts = {
+	.device			= NULL,
+	.baudRate		= SERIAL_BAUD_57600,
+	.serial_mode		= "8e1",
+};
 int		rd	 	= 0;
 int		wr		= 0;
 int		wu		= 0;
@@ -134,21 +137,21 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	serial = serial_open(device);
+	serial = serial_open(port_opts.device);
 	if (!serial) {
 		fprintf(stderr, "Failed to open serial port: ");
-		perror(device);
+		perror(port_opts.device);
 		goto close;
 	}
 
 	if (serial_setup(
 		serial,
-		baudRate,
-		serial_get_bits(serial_mode),
-		serial_get_parity(serial_mode),
-		serial_get_stopbit(serial_mode)
+		port_opts.baudRate,
+		serial_get_bits(port_opts.serial_mode),
+		serial_get_parity(port_opts.serial_mode),
+		serial_get_stopbit(port_opts.serial_mode)
 	) != SERIAL_ERR_OK) {
-		perror(device);
+		perror(port_opts.device);
 		goto close;
 	}
 
@@ -426,11 +429,12 @@ int parse_options(int argc, char *argv[]) {
 	while((c = getopt(argc, argv, "b:m:r:w:e:vn:g:jkfchuos:S:i:")) != -1) {
 		switch(c) {
 			case 'b':
-				baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
-				if (baudRate == SERIAL_BAUD_INVALID) {
+				port_opts.baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
+				if (port_opts.baudRate == SERIAL_BAUD_INVALID) {
+					serial_baud_t baudrate;
 					fprintf(stderr,	"Invalid baud rate, valid options are:\n");
-					for(baudRate = SERIAL_BAUD_1200; baudRate != SERIAL_BAUD_INVALID; ++baudRate)
-						fprintf(stderr, " %d\n", serial_get_baud_int(baudRate));
+					for (baudrate = SERIAL_BAUD_1200; baudrate != SERIAL_BAUD_INVALID; ++baudrate)
+						fprintf(stderr, " %d\n", serial_get_baud_int(baudrate));
 					return 1;
 				}
 				break;
@@ -443,7 +447,7 @@ int parse_options(int argc, char *argv[]) {
 					fprintf(stderr, "Invalid serial mode\n");
 					return 1;
 				}
-				serial_mode = optarg;
+				port_opts.serial_mode = optarg;
 				break;
 
 			case 'r':
@@ -561,15 +565,15 @@ int parse_options(int argc, char *argv[]) {
 	}
 
 	for (c = optind; c < argc; ++c) {
-		if (device) {
+		if (port_opts.device) {
 			fprintf(stderr, "ERROR: Invalid parameter specified\n");
 			show_help(argv[0]);
 			return 1;
 		}
-		device = argv[c];
+		port_opts.device = argv[c];
 	}
 
-	if (device == NULL) {
+	if (port_opts.device == NULL) {
 		fprintf(stderr, "ERROR: Device not specified\n");
 		show_help(argv[0]);
 		return 1;
