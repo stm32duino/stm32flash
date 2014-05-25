@@ -42,7 +42,8 @@ struct serial {
 	serial_stopbit_t	stopbit;
 };
 
-serial_t* serial_open(const char *device) {
+static serial_t *serial_open(const char *device)
+{
 	serial_t *h = calloc(sizeof(serial_t), 1);
 
 	h->fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY);
@@ -58,7 +59,14 @@ serial_t* serial_open(const char *device) {
 	return h;
 }
 
-void serial_close(serial_t *h) {
+static void serial_flush(const serial_t *h)
+{
+	assert(h && h->fd > -1);
+	tcflush(h->fd, TCIFLUSH);
+}
+
+static void serial_close(serial_t *h)
+{
 	assert(h && h->fd > -1);
 
 	serial_flush(h);
@@ -67,12 +75,11 @@ void serial_close(serial_t *h) {
 	free(h);
 }
 
-void serial_flush(const serial_t *h) {
-	assert(h && h->fd > -1);
-	tcflush(h->fd, TCIFLUSH);
-}
-
-serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bits_t bits, const serial_parity_t parity, const serial_stopbit_t stopbit) {
+static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
+				 const serial_bits_t bits,
+				 const serial_parity_t parity,
+				 const serial_stopbit_t stopbit)
+{
 	assert(h && h->fd > -1);
 
 	speed_t		port_baud;
@@ -211,7 +218,9 @@ serial_err_t serial_setup(serial_t *h, const serial_baud_t baud, const serial_bi
 	return SERIAL_ERR_OK;
 }
 
-serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int len) {
+static serial_err_t serial_write(const serial_t *h, const void *buffer,
+				 unsigned int len)
+{
 	assert(h && h->fd > -1 && h->configured);
 
 	ssize_t r;
@@ -228,7 +237,9 @@ serial_err_t serial_write(const serial_t *h, const void *buffer, unsigned int le
 	return SERIAL_ERR_OK;
 }
 
-serial_err_t serial_read(const serial_t *h, void *buffer, unsigned int len) {
+static serial_err_t serial_read(const serial_t *h, void *buffer,
+				unsigned int len)
+{
 	assert(h && h->fd > -1 && h->configured);
 
 	ssize_t r;
@@ -246,7 +257,8 @@ serial_err_t serial_read(const serial_t *h, void *buffer, unsigned int len) {
 	return SERIAL_ERR_OK;
 }
 
-const char* serial_get_setup_str(const serial_t *h) {
+static const char *serial_get_setup_str(const serial_t *h)
+{
 	static char str[11];
 	if (!h->configured)
 		snprintf(str, sizeof(str), "INVALID");
@@ -261,7 +273,8 @@ const char* serial_get_setup_str(const serial_t *h) {
 	return str;
 }
 
-serial_err_t serial_gpio (const serial_t *h, serial_gpio_t n, int level) {
+static serial_err_t serial_gpio(const serial_t *h, serial_gpio_t n, int level)
+{
 	int bit, lines;
 
 	switch(n) {
