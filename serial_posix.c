@@ -372,6 +372,19 @@ static port_err_t serial_posix_write(struct port_interface *port, void *buf,
 	return PORT_ERR_UNKNOWN;
 }
 
+static port_err_t serial_posix_gpio(struct port_interface *port,
+				    serial_gpio_t n, int level)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+	if (serial_gpio(h, n, level) == SERIAL_ERR_OK)
+		return PORT_ERR_OK;
+	return PORT_ERR_UNKNOWN;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_posix",
 	.flags	= PORT_BYTE,
@@ -379,4 +392,5 @@ struct port_interface port_serial = {
 	.close	= serial_posix_close,
 	.read	= serial_posix_read,
 	.write	= serial_posix_write,
+	.gpio	= serial_posix_gpio,
 };

@@ -362,6 +362,19 @@ static port_err_t serial_w32_write(struct port_interface *port, void *buf, size_
 	return PORT_ERR_UNKNOWN;
 }
 
+static port_err_t serial_w32_gpio(struct port_interface *port,
+				  serial_gpio_t n, int level)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+	if (serial_gpio(h, n, level) == SERIAL_ERR_OK)
+		return PORT_ERR_OK;
+	return PORT_ERR_UNKNOWN;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_w32",
 	.flags	= PORT_BYTE,
@@ -369,4 +382,5 @@ struct port_interface port_serial = {
 	.close	= serial_w32_close,
 	.read	= serial_w32_read,
 	.write	= serial_w32_write,
+	.gpio	= serial_w32_gpio,
 };

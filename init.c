@@ -29,6 +29,7 @@
 #include "init.h"
 #include "serial.h"
 #include "stm32.h"
+#include "port.h"
 
 struct gpio_list {
 	struct gpio_list *next;
@@ -105,7 +106,7 @@ static int release_gpio(int n)
 	return write_to("/sys/class/gpio/unexport", num);
 }
 
-static int gpio_sequence(serial_t *serial, const char *s, size_t l)
+static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 {
 	struct gpio_list *gpio_to_release = NULL, *to_free;
 	int ret, level, gpio;
@@ -154,7 +155,7 @@ static int gpio_sequence(serial_t *serial, const char *s, size_t l)
 			}
 		}
 		if (gpio < 0)
-			ret = (serial_gpio(serial, -gpio, level) == SERIAL_ERR_OK);
+			ret = (port->gpio(port, -gpio, level) == PORT_ERR_OK);
 		else
 			ret = drive_gpio(gpio, level, &gpio_to_release);
 		usleep(100000);
@@ -170,7 +171,7 @@ static int gpio_sequence(serial_t *serial, const char *s, size_t l)
 	return ret;
 }
 
-static int gpio_bl_entry(serial_t *serial, const char *seq)
+static int gpio_bl_entry(struct port_interface *port, const char *seq)
 {
 	char *s;
 
@@ -179,12 +180,12 @@ static int gpio_bl_entry(serial_t *serial, const char *seq)
 
 	s = strchr(seq, ':');
 	if (s == NULL)
-		return gpio_sequence(serial, seq, strlen(seq));
+		return gpio_sequence(port, seq, strlen(seq));
 
-	return gpio_sequence(serial, seq, s - seq);
+	return gpio_sequence(port, seq, s - seq);
 }
 
-static int gpio_bl_exit(serial_t *serial, const char *seq)
+static int gpio_bl_exit(struct port_interface *port, const char *seq)
 {
 	char *s;
 
@@ -195,21 +196,21 @@ static int gpio_bl_exit(serial_t *serial, const char *seq)
 	if (s == NULL || s[1] == '\0')
 		return 1;
 
-	return gpio_sequence(serial, s + 1, strlen(s + 1));
+	return gpio_sequence(port, s + 1, strlen(s + 1));
 }
 
-int init_bl_entry(serial_t *serial, const char *seq)
+int init_bl_entry(struct port_interface *port, const char *seq)
 {
 	if (seq)
-		return gpio_bl_entry(serial, seq);
+		return gpio_bl_entry(port, seq);
 
 	return 1;
 }
 
-int init_bl_exit(stm32_t *stm, serial_t *serial, const char *seq)
+int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq)
 {
 	if (seq)
-		return gpio_bl_exit(serial, seq);
+		return gpio_bl_exit(port, seq);
 
 	return stm32_reset_device(stm);
 }

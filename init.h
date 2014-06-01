@@ -22,10 +22,10 @@
 #ifndef _INIT_H
 #define _INIT_H
 
-#include "serial.h"
 #include "stm32.h"
+#include "port.h"
 
-int init_bl_entry(serial_t *serial, const char *seq);
-int init_bl_exit(stm32_t *stm, serial_t *serial, const char *seq);
+int init_bl_entry(struct port_interface *port, const char *seq);
+int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq);
 
 #endif

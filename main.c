@@ -148,7 +148,8 @@ int main(int argc, char* argv[]) {
 	serial = (serial_t *)port->private;
 
 	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
-	if (init_flag && init_bl_entry(serial, gpio_seq) == 0) goto close;
+	if (init_flag && init_bl_entry(port, gpio_seq) == 0)
+		goto close;
 	stm = stm32_init(port, init_flag);
 	if (!stm)
 		goto close;
@@ -405,7 +406,7 @@ close:
 	if (stm && reset_flag) {
 		fprintf(diag, "\nResetting device... ");
 		fflush(diag);
-		if (init_bl_exit(stm, serial, gpio_seq))
+		if (init_bl_exit(stm, port, gpio_seq))
 			fprintf(diag, "done.\n");
 		else	fprintf(diag, "failed.\n");
 	}
