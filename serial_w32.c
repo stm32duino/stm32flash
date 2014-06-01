@@ -336,9 +336,37 @@ static port_err_t serial_w32_close(struct port_interface *port)
 	return PORT_ERR_OK;
 }
 
+static port_err_t serial_w32_read(struct port_interface *port, void *buf, size_t nbyte)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	if (serial_read(h, buf, nbyte) == SERIAL_ERR_OK)
+		return PORT_ERR_OK;
+	return PORT_ERR_UNKNOWN;
+}
+
+static port_err_t serial_w32_write(struct port_interface *port, void *buf, size_t nbyte)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	if (serial_write(h, buf, nbyte) == SERIAL_ERR_OK)
+		return PORT_ERR_OK;
+	return PORT_ERR_UNKNOWN;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_w32",
 	.flags	= PORT_BYTE,
 	.open	= serial_w32_open,
 	.close	= serial_w32_close,
+	.read	= serial_w32_read,
+	.write	= serial_w32_write,
 };
