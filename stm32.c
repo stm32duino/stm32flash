@@ -30,6 +30,8 @@
 
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
+#define STM32_BUSY	0x76
+
 #define STM32_CMD_INIT	0x7F
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
 #define STM32_CMD_GVR	0x01	/* get version and read protection status */
@@ -37,12 +39,18 @@
 #define STM32_CMD_RM	0x11	/* read memory */
 #define STM32_CMD_GO	0x21	/* go */
 #define STM32_CMD_WM	0x31	/* write memory */
+#define STM32_CMD_WM_NS	0x32	/* no-stretch write memory */
 #define STM32_CMD_ER	0x43	/* erase */
 #define STM32_CMD_EE	0x44	/* extended erase */
+#define STM32_CMD_EE_NS	0x45	/* extended erase no-stretch */
 #define STM32_CMD_WP	0x63	/* write protect */
+#define STM32_CMD_WP_NS	0x64	/* write protect no-stretch */
 #define STM32_CMD_UW	0x73	/* write unprotect */
+#define STM32_CMD_UW_NS	0x74	/* write unprotect no-stretch */
 #define STM32_CMD_RP	0x82	/* readout protect */
+#define STM32_CMD_RP_NS	0x83	/* readout protect no-stretch */
 #define STM32_CMD_UR	0x92	/* readout unprotect */
+#define STM32_CMD_UR_NS	0x93	/* readout unprotect no-stretch */
 #define STM32_CMD_ERR	0xFF	/* not a valid command */
 
 #define STM32_RESYNC_TIMEOUT	10	/* seconds */
@@ -146,12 +154,15 @@ static uint8_t stm32_get_ack(const stm32_t *stm)
 	uint8_t byte;
 	int err;
 
-	err = port->read(port, &byte, 1);
-	if (err != PORT_ERR_OK) {
-		fprintf(stderr, "Failed to read byte: ");
-		perror("read_byte");
-		exit(1);
-	}
+	do {
+		err = port->read(port, &byte, 1);
+		if (err != PORT_ERR_OK) {
+			fprintf(stderr, "Failed to read byte: ");
+			perror("read_byte");
+			exit(1);
+		}
+	} while (byte == STM32_BUSY);
+
 	return byte;
 }
 
@@ -247,6 +258,11 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	return err == PORT_ERR_OK;
 }
 
+/* find newer command by higher code */
+#define newer(prev, a) (((prev) == STM32_CMD_ERR) \
+			? (a) \
+			: (((prev) > (a)) ? (prev) : (a)))
+
 stm32_t *stm32_init(struct port_interface *port, const char init)
 {
 	uint8_t len, val, buf[257];
@@ -288,18 +304,30 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		case STM32_CMD_GO:
 			stm->cmd->go = val; break;
 		case STM32_CMD_WM:
-			stm->cmd->wm = val; break;
+		case STM32_CMD_WM_NS:
+			stm->cmd->wm = newer(stm->cmd->wm, val);
+			break;
 		case STM32_CMD_ER:
 		case STM32_CMD_EE:
-			stm->cmd->er = val; break;
+		case STM32_CMD_EE_NS:
+			stm->cmd->er = newer(stm->cmd->er, val);
+			break;
 		case STM32_CMD_WP:
-			stm->cmd->wp = val; break;
+		case STM32_CMD_WP_NS:
+			stm->cmd->wp = newer(stm->cmd->wp, val);
+			break;
 		case STM32_CMD_UW:
-			stm->cmd->uw = val; break;
+		case STM32_CMD_UW_NS:
+			stm->cmd->uw = newer(stm->cmd->uw, val);
+			break;
 		case STM32_CMD_RP:
-			stm->cmd->rp = val; break;
+		case STM32_CMD_RP_NS:
+			stm->cmd->rp = newer(stm->cmd->rp, val);
+			break;
 		case STM32_CMD_UR:
-			stm->cmd->ur = val; break;
+		case STM32_CMD_UR_NS:
+			stm->cmd->ur = newer(stm->cmd->ur, val);
+			break;
 		default:
 			if (new_cmds++ == 0)
 				fprintf(stderr,
@@ -509,9 +537,10 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages) {
 		return 0;
 	}
 
-	/* The erase command reported by the bootloader is either 0x43 or 0x44 */
+	/* The erase command reported by the bootloader is either 0x43, 0x44 or 0x45 */
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
-	if (stm->cmd->er == STM32_CMD_EE) {
+	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
+	if (stm->cmd->er != STM32_CMD_ER) {
  		/* Not all chips using Extended Erase support mass erase */
  		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
  		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
