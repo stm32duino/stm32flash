@@ -29,6 +29,7 @@ typedef enum {
 
 /* flags */
 #define PORT_BYTE	(1 << 0)	/* byte (not frame) oriented */
+#define PORT_GVR_ETX	(1 << 1)	/* cmd GVR returns protection status */
 
 /* all options and flags used to open and configure an interface */
 struct port_options {

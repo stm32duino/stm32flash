@@ -325,11 +325,13 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		return NULL;
 	}
 
-	if (port->read(port, buf, 3) != PORT_ERR_OK)
+	/* From AN, only UART bootloader returns 3 bytes */
+	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
+	if (port->read(port, buf, len) != PORT_ERR_OK)
 		return NULL;
 	stm->version = buf[0];
-	stm->option1 = buf[1];
-	stm->option2 = buf[2];
+	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
+	stm->option2 = (port->flags & PORT_GVR_ETX) ? buf[2] : 0;
 	if (stm32_get_ack(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
