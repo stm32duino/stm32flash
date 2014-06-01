@@ -318,14 +318,52 @@ Man page and extension to STM32W and I2C are written by
 .SH SEE ALSO
 .BR "srec_cat" "(1)," " srec_intel" "(5)," " srec_motorola" "(5)."
 
-The communication protocol used by ST bootloader is documented in ST
-application note AN3155. Copy is include in the source code of this
-software. Updated version of the application note is available in ST
-website:
+The communication protocol used by ST bootloader is documented in
+following ST application notes, depending on communication port.
+In current version of
+.B stm32flash
+are supported only
+.I UART
+and
+.I I2C
+ports.
+Copy of AN3155 is included in the source code of this software.
+Updated version of the application note is available in ST website.
 .PD 0
 .P
+.IP \(bu 2
+AN3154: CAN protocol used in the STM32 bootloader
+.P
+.RS
+http://www.st.com/web/en/resource/technical/document/application_note/CD00264321.pdf
+.RE
+
+.P
+.IP \(bu 2
+AN3155: USART protocol used in the STM32(TM) bootloader
+.P
+.RS
 http://www.st.com/web/en/resource/technical/document/application_note/CD00264342.pdf
+.RE
+
+.P
+.IP \(bu 2
+AN4221: I2C protocol used in the STM32 bootloader
+.P
+.RS
+http://www.st.com/web/en/resource/technical/document/application_note/DM00072315.pdf
+.RE
+
+.P
+.IP \(bu 2
+AN4286: SPI protocol used in the STM32 bootloader
+.P
+.RS
+http://www.st.com/web/en/resource/technical/document/application_note/DM00081379.pdf
+.RE
+
 .PD
+
 
 Boot mode selection for STM32 is documented in ST application note
 AN2606, available in ST website:
