@@ -385,6 +385,14 @@ static port_err_t serial_posix_gpio(struct port_interface *port,
 	return PORT_ERR_UNKNOWN;
 }
 
+static const char *serial_posix_get_cfg_str(struct port_interface *port)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	return serial_get_setup_str(h);
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_posix",
 	.flags	= PORT_BYTE,
@@ -393,4 +401,5 @@ struct port_interface port_serial = {
 	.read	= serial_posix_read,
 	.write	= serial_posix_write,
 	.gpio	= serial_posix_gpio,
+	.get_cfg_str	= serial_posix_get_cfg_str,
 };

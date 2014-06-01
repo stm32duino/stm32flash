@@ -41,7 +41,6 @@
 #define VERSION "0.3"
 
 /* device globals */
-serial_t	*serial		= NULL;
 stm32_t		*stm		= NULL;
 
 void		*p_st		= NULL;
@@ -145,9 +144,8 @@ int main(int argc, char* argv[]) {
 		perror(port_opts.device);
 		goto close;
 	}
-	serial = (serial_t *)port->private;
 
-	fprintf(diag, "Serial Config: %s\n", serial_get_setup_str(serial));
+	fprintf(diag, "Interface %s: %s\n", port->name, port->get_cfg_str(port));
 	if (init_flag && init_bl_entry(port, gpio_seq) == 0)
 		goto close;
 	stm = stm32_init(port, init_flag);

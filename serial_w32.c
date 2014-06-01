@@ -375,6 +375,14 @@ static port_err_t serial_w32_gpio(struct port_interface *port,
 	return PORT_ERR_UNKNOWN;
 }
 
+static const char *serial_w32_get_cfg_str(struct port_interface *port)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	return serial_get_setup_str(h);
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_w32",
 	.flags	= PORT_BYTE,
@@ -383,4 +391,5 @@ struct port_interface port_serial = {
 	.read	= serial_w32_read,
 	.write	= serial_w32_write,
 	.gpio	= serial_w32_gpio,
+	.get_cfg_str	= serial_w32_get_cfg_str,
 };
