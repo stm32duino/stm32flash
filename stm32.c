@@ -240,12 +240,20 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 		err = port->read(port, data + 1, len + 1);
 		return err == PORT_ERR_OK;
 	}
-	data[0] = 0;
+
 	err = port->read(port, data, len + 2);
-	if (data[0] == 0 && err != PORT_ERR_OK)
-		return 0;
-	if (len == data[0])
+	if (err == PORT_ERR_OK && len == data[0])
 		return 1;
+	if (err != PORT_ERR_OK) {
+		/* restart with only one byte */
+		if (stm32_resync(stm) == 0)
+			return 0;
+		if (!stm32_send_command(stm, cmd))
+			return 0;
+		err = port->read(port, data, 1);
+		if (err != PORT_ERR_OK)
+			return 0;
+	}
 
 	fprintf(stderr, "Re sync (len = %d)\n", data[0]);
 	if (stm32_resync(stm) == 0)
@@ -285,7 +293,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	}
 
 	/* get the bootloader information */
-	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, 10))
+	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, 17))
 		return NULL;
 	len = buf[0] + 1;
 	stm->bl_version = buf[1];
