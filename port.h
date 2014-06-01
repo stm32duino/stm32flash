@@ -41,6 +41,7 @@ struct port_interface {
 	const char *name;
 	unsigned flags;
 	port_err_t (*open)(struct port_interface *port, struct port_options *ops);
+	port_err_t (*close)(struct port_interface *port);
 	void *private;
 };
 

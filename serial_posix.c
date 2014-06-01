@@ -331,8 +331,22 @@ static port_err_t serial_posix_open(struct port_interface *port, struct port_opt
 	return PORT_ERR_OK;
 }
 
+static port_err_t serial_posix_close(struct port_interface *port)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	serial_close(h);
+	port->private = NULL;
+	return PORT_ERR_OK;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_posix",
 	.flags	= PORT_BYTE,
 	.open	= serial_posix_open,
+	.close	= serial_posix_close,
 };

@@ -410,7 +410,7 @@ close:
 
 	if (p_st  ) parser->close(p_st);
 	if (stm   ) stm32_close  (stm);
-	if (serial) serial_close (serial);
+	port->close(port);
 
 	fprintf(diag, "\n");
 	return ret;

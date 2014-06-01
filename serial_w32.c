@@ -323,8 +323,22 @@ static port_err_t serial_w32_open(struct port_interface *port, struct port_optio
 	return PORT_ERR_OK;
 }
 
+static port_err_t serial_w32_close(struct port_interface *port)
+{
+	serial_t *h;
+
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	serial_close(h);
+	port->private = NULL;
+	return PORT_ERR_OK;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_w32",
 	.flags	= PORT_BYTE,
 	.open	= serial_w32_open,
+	.close	= serial_w32_close,
 };
