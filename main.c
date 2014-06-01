@@ -51,6 +51,7 @@ struct port_options port_opts = {
 	.device			= NULL,
 	.baudRate		= SERIAL_BAUD_57600,
 	.serial_mode		= "8e1",
+	.bus_addr		= 0,
 };
 int		rd	 	= 0;
 int		wr		= 0;
@@ -419,8 +420,12 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while((c = getopt(argc, argv, "b:m:r:w:e:vn:g:jkfchuos:S:i:")) != -1) {
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfchuos:S:i:")) != -1) {
 		switch(c) {
+			case 'a':
+				port_opts.bus_addr = strtoul(optarg, NULL, 0);
+				break;
+
 			case 'b':
 				port_opts.baudRate = serial_get_baud(strtoul(optarg, NULL, 0));
 				if (port_opts.baudRate == SERIAL_BAUD_INVALID) {
@@ -583,7 +588,8 @@ int parse_options(int argc, char *argv[]) {
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"Usage: %s [-bvngfhc] [-[rw] filename] /dev/ttyS0\n"
+		"Usage: %s [-bvngfhc] [-[rw] filename] [tty_device | i2c_device]\n"
+		"	-a bus_address	Bus address (e.g. for I2C port)\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-m mode		Serial port mode (default 8e1)\n"
 		"	-r filename	Read flash to file (or - stdout)\n"
@@ -611,6 +617,8 @@ void show_help(char *name) {
 		"Examples:\n"
 		"	Get device information:\n"
 		"		%s /dev/ttyS0\n"
+		"	  or:\n"
+		"		%s /dev/i2c-0\n"
 		"\n"
 		"	Write with verify and then start execution:\n"
 		"		%s -w filename -v -g 0x0 /dev/ttyS0\n"
@@ -628,6 +636,7 @@ void show_help(char *name) {
 		"	- entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high\n"
 		"	- exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high\n"
 		"		%s -i -3,-2,2:3,-2,2 /dev/ttyS0\n",
+		name,
 		name,
 		name,
 		name,

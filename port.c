@@ -24,9 +24,11 @@
 
 
 extern struct port_interface port_serial;
+extern struct port_interface port_i2c;
 
 static struct port_interface *ports[] = {
 	&port_serial,
+	&port_i2c,
 	NULL,
 };
 

@@ -236,7 +236,7 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	if (len == data[0])
 		return 1;
 
-	fprintf(stderr, "Re sync\n");
+	fprintf(stderr, "Re sync (len = %d)\n", data[0]);
 	if (stm32_resync(stm) == 0)
 		return 0;
 

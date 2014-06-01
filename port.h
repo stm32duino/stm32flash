@@ -37,6 +37,7 @@ struct port_options {
 	const char *device;
 	serial_baud_t baudRate;
 	const char *serial_mode;
+	int bus_addr;
 };
 
 struct port_interface {

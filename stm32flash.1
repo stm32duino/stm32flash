@@ -4,6 +4,8 @@ stm32flash \- UART flashing utility for STM32 and STM32W
 .SH SYNOPSIS
 .B stm32flash
 .RB [ \-cfhjkouv ]
+.RB [ \-a
+.IR bus_address ]
 .RB [ \-b
 .IR baud_rate ]
 .RB [ \-m
@@ -24,7 +26,9 @@ stm32flash \- UART flashing utility for STM32 and STM32W
 .IR address [: length ]
 .RB [ \-i
 .IR GPIO_string ]
-.I tty_device
+.RI [ tty_device
+.R |
+.IR i2c_device ]
 
 .SH DESCRIPTION
 .B stm32flash
@@ -38,6 +42,12 @@ uses the serial port
 to interact with the bootloader of STM32[W].
 
 .SH OPTIONS
+.TP
+.BI "\-a" " bus_address"
+Specify address on bus for
+.IR i2c_device .
+This option is mandatory for I2C interface.
+
 .TP
 .BI "\-b" " baud_rate"
 Specify baud rate speed of
@@ -302,7 +312,7 @@ https://gitorious.org/stm32flash
 and maintained by
 .IR "Tormod Volden <debian.tormod@gmail.com>" .
 
-Extension to STM32W and man page are written by
+Man page and extension to STM32W and I2C are written by
 .IR "Antonio Borneo <borneo.antonio@gmail.com>" .
 
 .SH SEE ALSO
