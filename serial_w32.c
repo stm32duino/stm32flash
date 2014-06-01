@@ -388,7 +388,7 @@ static const char *serial_w32_get_cfg_str(struct port_interface *port)
 
 struct port_interface port_serial = {
 	.name	= "serial_w32",
-	.flags	= PORT_BYTE | PORT_GVR_ETX,
+	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT,
 	.open	= serial_w32_open,
 	.close	= serial_w32_close,
 	.read	= serial_w32_read,

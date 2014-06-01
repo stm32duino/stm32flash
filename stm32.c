@@ -258,7 +258,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
 	stm->port = port;
 
-	if (init) {
+	if ((port->flags & PORT_CMD_INIT) && init) {
 		buf[0] = STM32_CMD_INIT;
 		stm32_send(stm, buf, 1);
 		if (stm32_get_ack(stm) != STM32_ACK) {
