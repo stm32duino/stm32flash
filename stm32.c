@@ -251,7 +251,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 {
 	uint8_t len, val, buf[257];
 	stm32_t *stm;
-	int i;
+	int i, new_cmds;
 
 	stm      = calloc(sizeof(stm32_t), 1);
 	stm->cmd = malloc(sizeof(stm32_cmd_t));
@@ -273,6 +273,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		return NULL;
 	len = buf[0] + 1;
 	stm->bl_version = buf[1];
+	new_cmds = 0;
 	for (i = 1; i < len; i++) {
 		val = buf[i + 1];
 		switch (val) {
@@ -300,12 +301,16 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		case STM32_CMD_UR:
 			stm->cmd->ur = val; break;
 		default:
-			fprintf(stderr,
-				"Seems this bootloader returns more then we "
-				"understand in the GET command.\n"
-				"We will skip unknown byte 0x%02x\n", val);
+			if (new_cmds++ == 0)
+				fprintf(stderr,
+					"GET returns unknown commands (0x%2x",
+					val);
+			else
+				fprintf(stderr, ", 0x%2x", val);
 		}
 	}
+	if (new_cmds)
+		fprintf(stderr, ")\n");
 	if (stm32_get_ack(stm) != STM32_ACK) {
 		stm32_close(stm);
 		return NULL;
