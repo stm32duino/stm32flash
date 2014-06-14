@@ -46,7 +46,12 @@ struct port_interface port_i2c = {
 
 #else
 
+#ifdef __ANDROID__
+#define I2C_SLAVE 0x0703 /* Use this slave address */
+#else
 #include <linux/i2c-dev.h>
+#endif
+
 #include <sys/ioctl.h>
 
 struct i2c_priv {
