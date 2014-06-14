@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "stm32.h"
@@ -190,24 +191,28 @@ static int stm32_resync(const stm32_t *stm)
 	struct port_interface *port = stm->port;
 	int err;
 	uint8_t buf[2], ack;
-	int i = 0;
+	time_t t0, t1;
+
+	time(&t0);
+	t1 = t0;
 
 	buf[0] = STM32_CMD_ERR;
 	buf[1] = STM32_CMD_ERR ^ 0xFF;
-	while (i++ < STM32_RESYNC_TIMEOUT) {
+	while (t1 < t0 + STM32_RESYNC_TIMEOUT) {
 		err = port->write(port, buf, 2);
 		if (err != PORT_ERR_OK) {
-			sleep(1);
+			usleep(100000);
+			time(&t1);
 			continue;
 		}
 		err = port->read(port, &ack, 1);
 		if (err != PORT_ERR_OK) {
-			sleep(1);
+			time(&t1);
 			continue;
 		}
 		if (ack == STM32_NACK)
 			return 1;
-		sleep(1);
+		time(&t1);
 	}
 	return 0;
 }
