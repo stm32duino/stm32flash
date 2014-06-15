@@ -61,6 +61,7 @@ int		ur		= 0;
 int		eraseOnly	= 0;
 int		npages		= 0;
 int             spage           = 0;
+int             no_erase        = 0;
 char		verify		= 0;
 int		retry		= 10;
 char		exec_flag	= 0;
@@ -76,6 +77,38 @@ uint32_t	readwrite_len	= 0;
 /* functions */
 int  parse_options(int argc, char *argv[]);
 void show_help(char *name);
+
+static int is_addr_in_ram(uint32_t addr)
+{
+	return addr >= stm->dev->ram_start && addr < stm->dev->ram_end;
+}
+
+static int is_addr_in_flash(uint32_t addr)
+{
+	return addr >= stm->dev->fl_start && addr < stm->dev->fl_end;
+}
+
+static int flash_addr_to_page_floor(uint32_t addr)
+{
+	if (!is_addr_in_flash(addr))
+		return 0;
+
+	return (addr - stm->dev->fl_start) / stm->dev->fl_ps;
+}
+
+static int flash_addr_to_page_ceil(uint32_t addr)
+{
+	if (!(addr >= stm->dev->fl_start && addr <= stm->dev->fl_end))
+		return 0;
+
+	return (addr + stm->dev->fl_ps - 1 - stm->dev->fl_start)
+	       / stm->dev->fl_ps;
+}
+
+static uint32_t flash_page_to_addr(int page)
+{
+	return stm->dev->fl_start + page * stm->dev->fl_ps;
+}
 
 int main(int argc, char* argv[]) {
 	struct port_interface *port = NULL;
@@ -165,34 +198,77 @@ int main(int argc, char* argv[]) {
 	uint32_t	addr, start, end;
 	unsigned int	len;
 	int		failed = 0;
+	int		first_page, num_pages;
 
-	if (rd) {
-		fprintf(diag, "\n");
+	/*
+	 * Cleanup addresses:
+	 *
+	 * Starting from options
+	 *	start_addr, readwrite_len, spage, npages
+	 * and using device memory size, compute
+	 *	start, end, first_page, num_pages
+	 */
+	if (start_addr || readwrite_len) {
+		start = start_addr;
 
-		if ((perr = parser->open(p_st, filename, 1)) != PARSER_ERR_OK) {
-			fprintf(stderr, "%s ERROR: %s\n", parser->name, parser_errstr(perr));
-			if (perr == PARSER_ERR_SYSTEM) perror(filename);
+		if (is_addr_in_flash(start))
+			end = stm->dev->fl_end;
+		else {
+			no_erase = 1;
+			if (is_addr_in_ram(start))
+				end = stm->dev->ram_end;
+			else
+				end = start + sizeof(uint32_t);
+		}
+
+		if (readwrite_len && (end > start + readwrite_len))
+			end = start + readwrite_len;
+
+		first_page = flash_addr_to_page_floor(start);
+		if (!first_page && end == stm->dev->fl_end)
+			num_pages = 0xff; /* mass erase */
+		else
+			num_pages = flash_addr_to_page_ceil(end) - first_page;
+	} else if (!spage && !npages) {
+		start = stm->dev->fl_start;
+		end = stm->dev->fl_end;
+		first_page = 0;
+		num_pages = 0xff; /* mass erase */
+	} else {
+		first_page = spage;
+		start = flash_page_to_addr(first_page);
+		if (start > stm->dev->fl_end) {
+			fprintf(stderr, "Address range exceeds flash size.\n");
 			goto close;
 		}
 
-		if (start_addr || readwrite_len) {
-			start = start_addr;
-			if (readwrite_len)
-				end = start_addr + readwrite_len;
-			else
+		if (npages) {
+			num_pages = npages;
+			end = flash_page_to_addr(first_page + num_pages);
+			if (end > stm->dev->fl_end)
 				end = stm->dev->fl_end;
 		} else {
-			start = stm->dev->fl_start + (spage * stm->dev->fl_ps);
 			end = stm->dev->fl_end;
+			num_pages = flash_addr_to_page_ceil(end) - first_page;
 		}
-		addr = start;
 
-		if (start < stm->dev->fl_start || end > stm->dev->fl_end) {
-			fprintf(stderr, "Specified start & length are invalid\n");
+		if (!first_page && end == stm->dev->fl_end)
+			num_pages = 0xff; /* mass erase */
+	}
+
+	if (rd) {
+		fprintf(diag, "Memory read\n");
+
+		perr = parser->open(p_st, filename, 1);
+		if (perr != PARSER_ERR_OK) {
+			fprintf(stderr, "%s ERROR: %s\n", parser->name, parser_errstr(perr));
+			if (perr == PARSER_ERR_SYSTEM)
+				perror(filename);
 			goto close;
 		}
 
 		fflush(diag);
+		addr = start;
 		while(addr < end) {
 			uint32_t left	= end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
@@ -232,29 +308,20 @@ int main(int argc, char* argv[]) {
 	} else if (eraseOnly) {
 		ret = 0;
 		fprintf(stdout, "Erasing flash\n");
-		if (start_addr || readwrite_len) {
-			if ((start_addr % stm->dev->fl_ps) != 0
-			    || (readwrite_len % stm->dev->fl_ps) != 0) {
-				fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
-				ret = 1;
-				goto close;
-			}
-			spage = (start_addr - stm->dev->fl_start) / stm->dev->fl_ps;
-			if (readwrite_len)
-				npages = readwrite_len / stm->dev->fl_ps;
-			else
-				npages = (stm->dev->fl_end - stm->dev->fl_start) / stm->dev->fl_ps;
+
+		if (num_pages != 0xff &&
+		    (start != flash_page_to_addr(first_page)
+		     || end != flash_page_to_addr(first_page + num_pages))) {
+			fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
+			ret = 1;
+			goto close;
 		}
 
-		if (!spage && !npages)
-			npages = 0xff; /* mass erase */
-
-		if (!stm32_erase_memory(stm, spage, npages)) {
+		if (!stm32_erase_memory(stm, first_page, num_pages)) {
 			fprintf(stderr, "Failed to erase memory\n");
 			ret = 1;
 			goto close;
 		}
-		
 	} else if (wu) {
 		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
@@ -263,48 +330,17 @@ int main(int argc, char* argv[]) {
 		fprintf(diag,	"Done.\n");
 
 	} else if (wr) {
-		fprintf(diag, "\n");
+		fprintf(diag, "Write to memory\n");
 
 		off_t 	offset = 0;
 		ssize_t r;
 		unsigned int size;
 
 		/* Assume data from stdin is whole device */
-		if (filename[0] == '-')
-			size = stm->dev->fl_end - stm->dev->fl_start;
+		if (filename[0] == '-' && filename[1] == '\0')
+			size = end - start;
 		else
 			size = parser->size(p_st);
-
-		if (start_addr || readwrite_len) {
-			start = start_addr;
-			spage = (start_addr - stm->dev->fl_start) / stm->dev->fl_ps;
-			if (readwrite_len) {
-				end = start_addr + readwrite_len;
-				npages = (end - stm->dev->fl_start + stm->dev->fl_ps - 1) / stm->dev->fl_ps - spage;
-			} else {
-				end = stm->dev->fl_end;
-				if (spage)
-					npages = (end - stm->dev->fl_start) / stm->dev->fl_ps - spage;
-				else
-					npages = 0xff; /* mass erase */
-			}
-		} else if (!spage && !npages) {
-			start = stm->dev->fl_start;
-			end = stm->dev->fl_end;
-			npages = 0xff; /* mass erase */
-		} else {
-			start = stm->dev->fl_start + (spage * stm->dev->fl_ps);
-			if (npages)
-				end = start + npages * stm->dev->fl_ps;
-			else
-				end = stm->dev->fl_end;
-		}
-		addr = start;
-
-		if (start < stm->dev->fl_start || end > stm->dev->fl_end) {
-			fprintf(stderr, "Specified start & length are invalid\n");
-			goto close;
-		}
 
 		// TODO: It is possible to write to non-page boundaries, by reading out flash
 		//       from partial pages and combining with the input data
@@ -315,12 +351,16 @@ int main(int argc, char* argv[]) {
 
 		// TODO: If writes are not page aligned, we should probably read out existing flash
 		//       contents first, so it can be preserved and combined with new data
-		if (!stm32_erase_memory(stm, spage, npages)) {
-			fprintf(stderr, "Failed to erase memory\n");
-			goto close;
+		if (!no_erase && num_pages) {
+			fprintf(diag, "Erasing memory\n");
+			if (!stm32_erase_memory(stm, first_page, num_pages)) {
+				fprintf(stderr, "Failed to erase memory\n");
+				goto close;
+			}
 		}
 
 		fflush(diag);
+		addr = start;
 		while(addr < end && offset < size) {
 			uint32_t left	= end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
@@ -471,6 +511,8 @@ int parse_options(int argc, char *argv[]) {
 					fprintf(stderr, "ERROR: You need to specify a page count between 0 and 255");
 					return 1;
 				}
+				if (!npages)
+					no_erase = 1;
 				break;
 			case 'u':
 				wu = 1;
