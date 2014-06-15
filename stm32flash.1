@@ -3,7 +3,7 @@
 stm32flash \- flashing utility for STM32 and STM32W through UART or I2C
 .SH SYNOPSIS
 .B stm32flash
-.RB [ \-cfhjkouv ]
+.RB [ \-cfhjkouvR ]
 .RB [ \-a
 .IR bus_address ]
 .RB [ \-b
@@ -163,6 +163,17 @@ GPIO. (See below
 for the format of
 .I GPIO_string
 and further explanation).
+
+.TP
+.B \-R
+Specify to reset the device at exit.
+This option is ignored if either
+.BR "\-g" ","
+.BR "\-j" ","
+.B "\-k"
+or
+.B "\-u"
+is also specified.
 
 .SH BOOTLOADER GPIO SEQUENCE
 This feature is currently available on Linux host only.

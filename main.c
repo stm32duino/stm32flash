@@ -67,7 +67,7 @@ char		exec_flag	= 0;
 uint32_t	execute		= 0;
 char		init_flag	= 1;
 char		force_binary	= 0;
-char		reset_flag	= 1;
+char		reset_flag	= 0;
 char		*filename;
 char		*gpio_seq	= NULL;
 uint32_t	start_addr	= 0;
@@ -420,7 +420,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfchuos:S:i:")) != -1) {
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfchuos:S:i:R")) != -1) {
 		switch(c) {
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
@@ -559,6 +559,10 @@ int parse_options(int argc, char *argv[]) {
 			case 'i':
 				gpio_seq = optarg;
 				break;
+
+			case 'R':
+				reset_flag = 1;
+				break;
 		}
 	}
 
@@ -613,6 +617,7 @@ void show_help(char *name) {
 		"	-i GPIO_string	GPIO sequence to enter/exit bootloader mode\n"
 		"			GPIO_string=[entry_seq][:[exit_seq]]\n"
 		"			sequence=[-]n[,sequence]\n"
+		"	-R		Reset device at exit.\n"
 		"\n"
 		"Examples:\n"
 		"	Get device information:\n"
