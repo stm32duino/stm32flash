@@ -166,6 +166,12 @@ static const char *i2c_get_cfg_str(struct port_interface *port)
 	return str;
 }
 
+static struct varlen_cmd i2c_cmd_get_reply[] = {
+	{0x10, 11},
+	{0x11, 17},
+	{ /* sentinel */ }
+};
+
 struct port_interface port_i2c = {
 	.name	= "i2c",
 	.flags	= 0,
@@ -174,6 +180,7 @@ struct port_interface port_i2c = {
 	.read	= i2c_read,
 	.write	= i2c_write,
 	.gpio	= i2c_gpio,
+	.cmd_get_reply	= i2c_cmd_get_reply,
 	.get_cfg_str	= i2c_get_cfg_str,
 };
 
