@@ -40,6 +40,18 @@ struct port_options {
 	int bus_addr;
 };
 
+/*
+ * Specify the length of reply for command GET
+ * This is helpful for frame-oriented protocols, e.g. i2c, to avoid time
+ * consuming try-fail-timeout-retry operation.
+ * On byte-oriented protocols, i.e. UART, this information would be skipped
+ * after read the first byte, so not needed.
+ */
+struct varlen_cmd {
+	uint8_t version;
+	uint8_t length;
+};
+
 struct port_interface {
 	const char *name;
 	unsigned flags;
@@ -49,6 +61,7 @@ struct port_interface {
 	port_err_t (*write)(struct port_interface *port, void *buf, size_t nbyte);
 	port_err_t (*gpio)(struct port_interface *port, serial_gpio_t n, int level);
 	const char *(*get_cfg_str)(struct port_interface *port);
+	struct varlen_cmd *cmd_get_reply;
 	void *private;
 };
 

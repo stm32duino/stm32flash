@@ -56,6 +56,8 @@
 
 #define STM32_RESYNC_TIMEOUT	10	/* seconds */
 
+#define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
+
 struct stm32_cmd {
 	uint8_t get;
 	uint8_t gvr;
@@ -316,7 +318,14 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	}
 
 	/* get the bootloader information */
-	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, 17))
+	len = STM32_CMD_GET_LENGTH;
+	if (port->cmd_get_reply)
+		for (i = 0; port->cmd_get_reply[i].length; i++)
+			if (stm->version == port->cmd_get_reply[i].version) {
+				len = port->cmd_get_reply[i].length;
+				break;
+			}
+	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, len))
 		return NULL;
 	len = buf[0] + 1;
 	stm->bl_version = buf[1];
