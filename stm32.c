@@ -297,6 +297,24 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		}
 	}
 
+	/* get the version and read protection status  */
+	if (!stm32_send_command(stm, STM32_CMD_GVR)) {
+		stm32_close(stm);
+		return NULL;
+	}
+
+	/* From AN, only UART bootloader returns 3 bytes */
+	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
+	if (port->read(port, buf, len) != PORT_ERR_OK)
+		return NULL;
+	stm->version = buf[0];
+	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
+	stm->option2 = (port->flags & PORT_GVR_ETX) ? buf[2] : 0;
+	if (stm32_get_ack(stm) != STM32_ACK) {
+		stm32_close(stm);
+		return NULL;
+	}
+
 	/* get the bootloader information */
 	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, 17))
 		return NULL;
@@ -362,24 +380,6 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	    || stm->cmd->gid == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: bootloader did not returned correct "
 			"information from GET command\n");
-		return NULL;
-	}
-
-	/* get the version and read protection status  */
-	if (!stm32_send_command(stm, stm->cmd->gvr)) {
-		stm32_close(stm);
-		return NULL;
-	}
-
-	/* From AN, only UART bootloader returns 3 bytes */
-	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
-	if (port->read(port, buf, len) != PORT_ERR_OK)
-		return NULL;
-	stm->version = buf[0];
-	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
-	stm->option2 = (port->flags & PORT_GVR_ETX) ? buf[2] : 0;
-	if (stm32_get_ack(stm) != STM32_ACK) {
-		stm32_close(stm);
 		return NULL;
 	}
 
