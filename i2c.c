@@ -169,6 +169,7 @@ static const char *i2c_get_cfg_str(struct port_interface *port)
 static struct varlen_cmd i2c_cmd_get_reply[] = {
 	{0x10, 11},
 	{0x11, 17},
+	{0x12, 18},
 	{ /* sentinel */ }
 };
 

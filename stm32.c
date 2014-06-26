@@ -52,6 +52,7 @@
 #define STM32_CMD_RP_NS	0x83	/* readout protect no-stretch */
 #define STM32_CMD_UR	0x92	/* readout unprotect */
 #define STM32_CMD_UR_NS	0x93	/* readout unprotect no-stretch */
+#define STM32_CMD_CRC	0xA1	/* compute CRC */
 #define STM32_CMD_ERR	0xFF	/* not a valid command */
 
 #define STM32_RESYNC_TIMEOUT	10	/* seconds */
@@ -70,6 +71,7 @@ struct stm32_cmd {
 	uint8_t uw;
 	uint8_t rp;
 	uint8_t ur;
+	uint8_t	crc;
 };
 
 /* Reset code for ARMv7-M (Cortex-M3) and ARMv6-M (Cortex-M0)
@@ -158,7 +160,7 @@ static int stm32_resync(const stm32_t *stm)
 	while (t1 < t0 + STM32_RESYNC_TIMEOUT) {
 		err = port->write(port, buf, 2);
 		if (err != PORT_ERR_OK) {
-			usleep(100000);
+			usleep(500000);
 			time(&t1);
 			continue;
 		}
@@ -322,6 +324,9 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 		case STM32_CMD_UR:
 		case STM32_CMD_UR_NS:
 			stm->cmd->ur = newer(stm->cmd->ur, val);
+			break;
+		case STM32_CMD_CRC:
+			stm->cmd->crc = newer(stm->cmd->crc, val);
 			break;
 		default:
 			if (new_cmds++ == 0)
