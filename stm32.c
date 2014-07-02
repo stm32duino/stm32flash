@@ -670,3 +670,75 @@ char stm32_reset_device(const stm32_t *stm) {
 	return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
 }
 
+char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
+		      uint32_t *crc)
+{
+	struct port_interface *port = stm->port;
+	uint8_t buf[5];
+
+	if (stm->cmd->crc == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: CRC command not implemented in bootloader.\n");
+		return 0;
+	}
+
+	if (!stm32_send_command(stm, stm->cmd->crc))
+		return 0;
+
+	buf[0] = address >> 24;
+	buf[1] = (address >> 16) & 0xFF;
+	buf[2] = (address >> 8) & 0xFF;
+	buf[3] = address & 0xFF;
+	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+	stm32_send(stm, buf, 5);
+
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return 0;
+
+	buf[0] = length >> 24;
+	buf[1] = (length >> 16) & 0xFF;
+	buf[2] = (length >> 8) & 0xFF;
+	buf[3] = length & 0xFF;
+	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+	stm32_send(stm, buf, 5);
+
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return 0;
+
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return 0;
+
+	if (port->read(port, buf, 5) != PORT_ERR_OK)
+		return 0;
+
+	if (buf[4] != (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]))
+		return 0;
+
+	*crc = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+	return 1;
+}
+
+#define CRCPOLY_BE	0x04c11db7
+#define CRC_MSBMASK	0x80000000
+#define CRC_INIT_VALUE	0xFFFFFFFF
+uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len)
+{
+	int i;
+	uint32_t data;
+
+	while (len) {
+		data = *buf++;
+		data |= ((len > 1) ? *buf++ : 0xff) << 8;
+		data |= ((len > 2) ? *buf++ : 0xff) << 16;
+		data |= ((len > 3) ? *buf++ : 0xff) << 24;
+		len -= 4;
+
+		crc ^= data;
+
+		for (i = 0; i < 32; i++)
+			if (crc & CRC_MSBMASK)
+				crc = (crc << 1) ^ CRCPOLY_BE;
+			else
+				crc = (crc << 1);
+	}
+	return crc;
+}

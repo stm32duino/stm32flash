@@ -60,6 +60,9 @@ char stm32_go            (const stm32_t *stm, uint32_t address);
 char stm32_reset_device  (const stm32_t *stm);
 char stm32_readprot_memory (const stm32_t *stm);
 char stm32_runprot_memory  (const stm32_t *stm);
+char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
+		      uint32_t *crc);
+uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len);
 
 #endif
 
