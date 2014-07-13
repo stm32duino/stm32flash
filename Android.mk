@@ -6,6 +6,6 @@ LOCAL_PATH := $(TOP_LOCAL_PATH)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := stm32flash
-LOCAL_SRC_FILES := i2c.c init.c main.c port.c serial_common.c serial_platform.c stm32.c utils.c
+LOCAL_SRC_FILES := i2c.c init.c main.c port.c serial_common.c serial_platform.c stm32.c utils.c dev_table.c
 LOCAL_STATIC_LIBRARIES := libparsers
 include $(BUILD_EXECUTABLE)
