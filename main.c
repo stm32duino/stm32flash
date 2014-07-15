@@ -35,6 +35,8 @@
 #include "parsers/binary.h"
 #include "parsers/hex.h"
 
+#define VERSION "0.3"
+
 /* device globals */
 serial_t	*serial		= NULL;
 stm32_t		*stm		= NULL;
@@ -75,7 +77,8 @@ int main(int argc, char* argv[]) {
 	parser_err_t perr;
 	FILE *diag = stdout;
 
-	fprintf(diag, "stm32flash - http://stm32flash.googlecode.com/\n\n");
+	fprintf(diag, "stm32flash " VERSION "\n\n");
+	fprintf(diag, "http://stm32flash.googlecode.com/\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
 
