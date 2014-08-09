@@ -1,0 +1,5 @@
+
+The protocol used by the STM32 serial bootloader is described in the 
+AN3155 application note "USART protocol used in the STM32 bootloader"
+from STMicroelectronics, available at http://www.st.com/ (search for AN3155).
+
