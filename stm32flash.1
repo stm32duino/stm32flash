@@ -3,7 +3,7 @@
 stm32flash \- flashing utility for STM32 and STM32W through UART or I2C
 .SH SYNOPSIS
 .B stm32flash
-.RB [ \-cfhjkouvR ]
+.RB [ \-cfhjkouvCR ]
 .RB [ \-a
 .IR bus_address ]
 .RB [ \-b
@@ -138,7 +138,7 @@ Specify flash page offset (0 = flash start).
 
 .TP
 .BI "\-S" " address" "[:" "length" "]"
-Specify start address and optionally length for read/write/erase operations.
+Specify start address and optionally length for read/write/erase/crc operations.
 
 .TP
 .B \-f
@@ -165,6 +165,14 @@ GPIO. (See below
 for the format of
 .I GPIO_string
 and further explanation).
+
+.TP
+.B \-C
+Specify to compute CRC on memory content.
+By default the CRC is computed on the whole flash content.
+Use
+.B "\-S"
+to provide different memory address range.
 
 .TP
 .B \-R

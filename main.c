@@ -59,6 +59,7 @@ int		wu		= 0;
 int		rp		= 0;
 int		ur		= 0;
 int		eraseOnly	= 0;
+int		crc		= 0;
 int		npages		= 0;
 int             spage           = 0;
 int             no_erase        = 0;
@@ -424,6 +425,19 @@ int main(int argc, char* argv[]) {
 		fprintf(diag,	"Done.\n");
 		ret = 0;
 		goto close;
+	} else if (crc) {
+		uint32_t crc_val = 0;
+
+		fprintf(diag, "CRC computation\n");
+
+		if (!stm32_crc_wrapper(stm, start, end - start, &crc_val)) {
+			fprintf(stderr, "Failed to read CRC\n");
+			goto close;
+		}
+		fprintf(diag, "CRC(0x%08x-0x%08x) = 0x%08x\n", start, end,
+			crc_val);
+		ret = 0;
+		goto close;
 	} else
 		ret = 0;
 
@@ -460,7 +474,7 @@ close:
 
 int parse_options(int argc, char *argv[]) {
 	int c;
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfchuos:S:i:R")) != -1) {
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:i:R")) != -1) {
 		switch(c) {
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
@@ -605,6 +619,10 @@ int parse_options(int argc, char *argv[]) {
 			case 'R':
 				reset_flag = 1;
 				break;
+
+			case 'C':
+				crc = 1;
+				break;
 		}
 	}
 
@@ -640,6 +658,7 @@ void show_help(char *name) {
 		"	-m mode		Serial port mode (default 8e1)\n"
 		"	-r filename	Read flash to file (or - stdout)\n"
 		"	-w filename	Write flash from file (or - stdout)\n"
+		"	-C		Compute CRC of flash content\n"
 		"	-u		Disable the flash write-protection\n"
 		"	-j		Enable the flash read-protection\n"
 		"	-k		Disable the flash read-protection\n"

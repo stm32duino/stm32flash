@@ -742,3 +742,29 @@ uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len)
 	}
 	return crc;
 }
+
+char stm32_crc_wrapper(const stm32_t *stm, uint32_t address, uint32_t length,
+		       uint32_t *crc)
+{
+	uint8_t buf[256];
+	uint32_t len, current_crc;
+
+	if (stm->cmd->crc != STM32_CMD_ERR)
+		return stm32_crc_memory(stm, address, length, crc);
+
+	current_crc = CRC_INIT_VALUE;
+	while (length) {
+		len = length > 256 ? 256 : length;
+		if (!stm32_read_memory(stm, address, buf, len)) {
+			fprintf(stderr,
+				"Failed to read memory at address 0x%08x, target write-protected?\n",
+				address);
+			return 0;
+		}
+		current_crc = stm32_sw_crc(current_crc, buf, len);
+		length -= len;
+		address += len;
+	}
+	*crc = current_crc;
+	return 1;
+}
