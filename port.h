@@ -24,6 +24,7 @@
 typedef enum {
 	PORT_ERR_OK = 0,
 	PORT_ERR_NODEV,		/* No such device */
+	PORT_ERR_TIMEDOUT,	/* Operation timed out */
 	PORT_ERR_UNKNOWN,
 } port_err_t;
 

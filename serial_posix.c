@@ -361,13 +361,17 @@ static port_err_t serial_posix_read(struct port_interface *port, void *buf,
 				     size_t nbyte)
 {
 	serial_t *h;
+	serial_err_t ret;
 
 	h = (serial_t *)port->private;
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
 
-	if (serial_read(h, buf, nbyte) == SERIAL_ERR_OK)
+	ret = serial_read(h, buf, nbyte);
+	if (ret == SERIAL_ERR_OK)
 		return PORT_ERR_OK;
+	if (ret == SERIAL_ERR_NODATA)
+		return PORT_ERR_TIMEDOUT;
 	return PORT_ERR_UNKNOWN;
 }
 
