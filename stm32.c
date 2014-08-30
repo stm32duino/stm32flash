@@ -57,6 +57,9 @@
 #define STM32_CMD_ERR	0xFF	/* not a valid command */
 
 #define STM32_RESYNC_TIMEOUT	10	/* seconds */
+#define STM32_MASSERASE_TIMEOUT	10	/* seconds */
+#define STM32_SECTERASE_TIMEOUT	5	/* seconds */
+#define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
 
@@ -128,7 +131,8 @@ static uint8_t stm32_get_ack(const stm32_t *stm)
 	return stm32_get_ack_timeout(stm, 0);
 }
 
-char stm32_send_command(const stm32_t *stm, const uint8_t cmd)
+char stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
+				time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	int ret;
@@ -141,7 +145,7 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 		fprintf(stderr, "Failed to send command\n");
 		return 0;
 	}
-	ret = stm32_get_ack(stm);
+	ret = stm32_get_ack_timeout(stm, timeout);
 	if (ret == STM32_ACK) {
 		return 1;
 	} else if (ret == STM32_NACK) {
@@ -150,6 +154,11 @@ char stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 		fprintf(stderr, "Unexpected reply from device on command 0x%02x\n", cmd);
 	}
 	return 0;
+}
+
+char stm32_send_command(const stm32_t *stm, const uint8_t cmd)
+{
+	return stm32_send_command_timeout(stm, cmd, 0);
 }
 
 /* if we have lost sync, send a wrong command and expect a NACK */
@@ -486,6 +495,7 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	struct port_interface *port = stm->port;
 	uint8_t cs, buf[256 + 2];
 	unsigned int i, aligned_len;
+	int ret;
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -525,7 +535,8 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	if (port->write(port, buf, aligned_len + 2) != PORT_ERR_OK)
 		return 0;
 
-	return stm32_get_ack(stm) == STM32_ACK;
+	ret = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
+	return ret == STM32_ACK;
 }
 
 char stm32_wunprot_memory(const stm32_t *stm) {
@@ -600,7 +611,8 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 				fprintf(stderr, "Mass erase error.\n");
 				return 0;
 			}
-			if (stm32_get_ack(stm) != STM32_ACK) {
+			ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+			if (ret != STM32_ACK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
 				return 0;
 			}
@@ -640,8 +652,9 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			fprintf(stderr, "Page-by-page erase error.\n");
 			return 0;
 		}
- 	
-		if (stm32_get_ack(stm) != STM32_ACK) {
+
+		ret = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
+		if (ret != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 			return 0;
  		}
@@ -651,7 +664,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 	/* And now the regular erase (0x43) for all other chips */
 	if (pages == 0xFF) {
-		return stm32_send_command(stm, 0xFF);
+		return stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
 	} else {
 		uint8_t cs = 0;
 		uint8_t pg_num;
@@ -675,7 +688,8 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			fprintf(stderr, "Erase failed.\n");
 			return 0;
 		}
-		return stm32_get_ack(stm) == STM32_ACK;
+		ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+		return ret == STM32_ACK;
 	}
 }
 
