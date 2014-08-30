@@ -92,9 +92,6 @@ static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 extern const stm32_dev_t devices[];
 
-/* internal functions */
-char    stm32_send_command(const stm32_t *stm, const uint8_t cmd);
-
 static uint8_t stm32_get_ack(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
