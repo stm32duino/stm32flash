@@ -32,6 +32,7 @@
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
 #define STM32_BUSY	0x76
+#define STM32_ACK_ERROR	0x00
 
 #define STM32_CMD_INIT	0x7F
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
@@ -103,9 +104,8 @@ static uint8_t stm32_get_ack(const stm32_t *stm)
 	do {
 		err = port->read(port, &byte, 1);
 		if (err != PORT_ERR_OK) {
-			fprintf(stderr, "Failed to read byte: ");
-			perror("read_byte");
-			exit(1);
+			fprintf(stderr, "Failed to read ACK byte\n");
+			return STM32_ACK_ERROR;
 		}
 	} while (byte == STM32_BUSY);
 
