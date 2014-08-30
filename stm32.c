@@ -238,6 +238,59 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	return err == PORT_ERR_OK;
 }
 
+/*
+ * Some interface, e.g. UART, requires a specific init sequence to let STM32
+ * autodetect the interface speed.
+ * The sequence is only required one time after reset.
+ * stm32flash has command line flag "-c" to prevent sending the init sequence
+ * in case it was already sent before.
+ * User can easily forget adding "-c". In this case the bootloader would
+ * interpret the init sequence as part of a command message, then waiting for
+ * the rest of the message blocking the interface.
+ * This function sends the init sequence and, in case of timeout, recovers
+ * the interface.
+ */
+static char stm32_send_init_seq(const stm32_t *stm)
+{
+	struct port_interface *port = stm->port;
+	int ret;
+	uint8_t byte, cmd = STM32_CMD_INIT;
+
+	ret = port->write(port, &cmd, 1);
+	if (ret != PORT_ERR_OK) {
+		fprintf(stderr, "Failed to send init to device\n");
+		return 0;
+	}
+	ret = port->read(port, &byte, 1);
+	if (ret == PORT_ERR_OK && byte == STM32_ACK)
+		return 1;
+	if (ret == PORT_ERR_OK && byte == STM32_NACK) {
+		/* We could get error later, but let's continue, for now. */
+		fprintf(stderr,
+			"Warning: the interface was not closed properly.\n");
+		return 1;
+	}
+	if (ret != PORT_ERR_TIMEDOUT) {
+		fprintf(stderr, "Failed to init device.\n");
+		return 0;
+	}
+
+	/*
+	 * Check if previous STM32_CMD_INIT was taken as first byte
+	 * of a command. Send a new byte, we should get back a NACK.
+	 */
+	ret = port->write(port, &cmd, 1);
+	if (ret != PORT_ERR_OK) {
+		fprintf(stderr, "Failed to send init to device\n");
+		return 0;
+	}
+	ret = port->read(port, &byte, 1);
+	if (ret == PORT_ERR_OK && byte == STM32_NACK)
+		return 1;
+	fprintf(stderr, "Failed to init device.\n");
+	return 0;
+}
+
 /* find newer command by higher code */
 #define newer(prev, a) (((prev) == STM32_CMD_ERR) \
 			? (a) \
@@ -254,18 +307,9 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
 	stm->port = port;
 
-	if ((port->flags & PORT_CMD_INIT) && init) {
-		buf[0] = STM32_CMD_INIT;
-		if (port->write(port, buf, 1) != PORT_ERR_OK) {
-			fprintf(stderr, "Failed to send init to device\n");
+	if ((port->flags & PORT_CMD_INIT) && init)
+		if (!stm32_send_init_seq(stm))
 			return NULL;
-		}
-		if (stm32_get_ack(stm) != STM32_ACK) {
-			stm32_close(stm);
-			fprintf(stderr, "Failed to get init ACK from device\n");
-			return NULL;
-		}
-	}
 
 	/* get the version and read protection status  */
 	if (!stm32_send_command(stm, STM32_CMD_GVR)) {
