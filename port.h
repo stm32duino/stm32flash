@@ -32,6 +32,7 @@ typedef enum {
 #define PORT_BYTE	(1 << 0)	/* byte (not frame) oriented */
 #define PORT_GVR_ETX	(1 << 1)	/* cmd GVR returns protection status */
 #define PORT_CMD_INIT	(1 << 2)	/* use INIT cmd to autodetect speed */
+#define PORT_RETRY	(1 << 3)	/* allowed read() retry after timeout */
 
 /* all options and flags used to open and configure an interface */
 struct port_options {

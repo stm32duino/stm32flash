@@ -92,21 +92,40 @@ static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 extern const stm32_dev_t devices[];
 
-static uint8_t stm32_get_ack(const stm32_t *stm)
+static uint8_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	uint8_t byte;
 	int err;
+	time_t t0, t1;
+
+	if (!(port->flags & PORT_RETRY))
+		timeout = 0;
+
+	if (timeout)
+		time(&t0);
 
 	do {
 		err = port->read(port, &byte, 1);
+		if (err == PORT_ERR_TIMEDOUT && timeout) {
+			time(&t1);
+			if (t1 < t0 + timeout)
+				continue;
+		}
+
 		if (err != PORT_ERR_OK) {
 			fprintf(stderr, "Failed to read ACK byte\n");
 			return STM32_ACK_ERROR;
 		}
-	} while (byte == STM32_BUSY);
 
-	return byte;
+		if (byte != STM32_BUSY)
+			return byte;
+	} while (1);
+}
+
+static uint8_t stm32_get_ack(const stm32_t *stm)
+{
+	return stm32_get_ack_timeout(stm, 0);
 }
 
 char stm32_send_command(const stm32_t *stm, const uint8_t cmd)

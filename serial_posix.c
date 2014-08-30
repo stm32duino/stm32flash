@@ -412,7 +412,7 @@ static const char *serial_posix_get_cfg_str(struct port_interface *port)
 
 struct port_interface port_serial = {
 	.name	= "serial_posix",
-	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT,
+	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT | PORT_RETRY,
 	.open	= serial_posix_open,
 	.close	= serial_posix_close,
 	.read	= serial_posix_read,
