@@ -47,7 +47,8 @@ static serial_t *serial_open(const char *device)
 {
 	serial_t *h = calloc(sizeof(serial_t), 1);
 
-	COMMTIMEOUTS timeouts = {MAXDWORD, MAXDWORD, 3000, 0, 0};
+	/* timeout in ms */
+	COMMTIMEOUTS timeouts = {MAXDWORD, MAXDWORD, 500, 0, 0};
 
 	/* Fix the device name if required */
 	char *devName;

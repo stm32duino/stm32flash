@@ -193,7 +193,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		CREAD;
 
 	h->newtio.c_cc[VMIN ] = 0;
-	h->newtio.c_cc[VTIME] = 180;
+	h->newtio.c_cc[VTIME] = 5;	/* in units of 0.1 s */
 
 	/* set the settings */
 	serial_flush(h);
