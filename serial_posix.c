@@ -313,7 +313,7 @@ static port_err_t serial_posix_open(struct port_interface *port, struct port_opt
 
 	/* 1. check device name match */
 	if (strncmp(ops->device, "/dev/tty", strlen("/dev/tty")))
-		return PORT_ERR_NOT_RECOGNIZED;
+		return PORT_ERR_NODEV;
 
 	/* 2. check options */
 	if (ops->baudRate == SERIAL_BAUD_INVALID)

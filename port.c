@@ -40,7 +40,7 @@ port_err_t port_open(struct port_options *ops, struct port_interface **outport)
 
 	for (port = ports; *port; port++) {
 		ret = (*port)->open(*port, ops);
-		if (ret == PORT_ERR_NOT_RECOGNIZED)
+		if (ret == PORT_ERR_NODEV)
 			continue;
 		if (ret == PORT_ERR_OK)
 			break;

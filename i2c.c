@@ -36,7 +36,7 @@
 static port_err_t i2c_open(struct port_interface *port,
 			   struct port_options *ops)
 {
-	return PORT_ERR_NOT_RECOGNIZED;
+	return PORT_ERR_NODEV;
 }
 
 struct port_interface port_i2c = {
@@ -67,7 +67,7 @@ static port_err_t i2c_open(struct port_interface *port,
 
 	/* 1. check device name match */
 	if (strncmp(ops->device, "/dev/i2c-", strlen("/dev/i2c-")))
-		return PORT_ERR_NOT_RECOGNIZED;
+		return PORT_ERR_NODEV;
 
 	/* 2. check options */
 	addr = ops->bus_addr;
