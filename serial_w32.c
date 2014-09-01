@@ -34,11 +34,7 @@ struct serial {
 	HANDLE fd;
 	DCB oldtio;
 	DCB newtio;
-
-	serial_baud_t		baud;
-	serial_bits_t		bits;
-	serial_parity_t		parity;
-	serial_stopbit_t	stopbit;
+	char setup_str[11];
 };
 
 static serial_t *serial_open(const char *device)
@@ -175,10 +171,12 @@ static serial_err_t serial_setup(serial_t *h,
 	if (!SetCommState(h->fd, &h->newtio))
 		return SERIAL_ERR_SYSTEM;
 
-	h->baud	      = baud;
-	h->bits	      = bits;
-	h->parity     = parity;
-	h->stopbit    = stopbit;
+	snprintf(h->setup_str, sizeof(h->setup_str), "%u %d%c%d",
+		serial_get_baud_int(baud),
+		serial_get_bits_int(bits),
+		serial_get_parity_str(parity),
+		serial_get_stopbit_int(stopbit)
+	);
 	return SERIAL_ERR_OK;
 }
 
@@ -220,18 +218,7 @@ static serial_err_t serial_read(const serial_t *h, void *buffer,
 
 static const char *serial_get_setup_str(const serial_t *h)
 {
-	static char str[11];
-	if (!h)
-		snprintf(str, sizeof(str), "INVALID");
-	else
-		snprintf(str, sizeof(str), "%u %d%c%d",
-			serial_get_baud_int   (h->baud   ),
-			serial_get_bits_int   (h->bits   ),
-			serial_get_parity_str (h->parity ),
-			serial_get_stopbit_int(h->stopbit)
-		);
-
-	return str;
+	return h ? h->setup_str : "INVALID";
 }
 
 static serial_err_t serial_gpio(const serial_t *h, serial_gpio_t n, int level)
