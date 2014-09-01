@@ -17,13 +17,12 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-
-#include <stdlib.h>
 #include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
-#include <termios.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <termios.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 
 #include "serial.h"
@@ -71,33 +70,34 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 				 const serial_parity_t parity,
 				 const serial_stopbit_t stopbit)
 {
-	speed_t		port_baud;
-	tcflag_t	port_bits;
-	tcflag_t	port_parity;
-	tcflag_t	port_stop;
+	speed_t	port_baud;
+	tcflag_t port_bits;
+	tcflag_t port_parity;
+	tcflag_t port_stop;
+	struct termios settings;
 
-	switch(baud) {
-		case SERIAL_BAUD_1200  : port_baud = B1200  ; break;
-		case SERIAL_BAUD_1800  : port_baud = B1800  ; break;
-		case SERIAL_BAUD_2400  : port_baud = B2400  ; break;
-		case SERIAL_BAUD_4800  : port_baud = B4800  ; break;
-		case SERIAL_BAUD_9600  : port_baud = B9600  ; break;
-		case SERIAL_BAUD_19200 : port_baud = B19200 ; break;
-		case SERIAL_BAUD_38400 : port_baud = B38400 ; break;
-		case SERIAL_BAUD_57600 : port_baud = B57600 ; break;
-		case SERIAL_BAUD_115200: port_baud = B115200; break;
-		case SERIAL_BAUD_230400: port_baud = B230400; break;
+	switch (baud) {
+		case SERIAL_BAUD_1200:    port_baud = B1200; break;
+		case SERIAL_BAUD_1800:    port_baud = B1800; break;
+		case SERIAL_BAUD_2400:    port_baud = B2400; break;
+		case SERIAL_BAUD_4800:    port_baud = B4800; break;
+		case SERIAL_BAUD_9600:    port_baud = B9600; break;
+		case SERIAL_BAUD_19200:   port_baud = B19200; break;
+		case SERIAL_BAUD_38400:   port_baud = B38400; break;
+		case SERIAL_BAUD_57600:   port_baud = B57600; break;
+		case SERIAL_BAUD_115200:  port_baud = B115200; break;
+		case SERIAL_BAUD_230400:  port_baud = B230400; break;
 #ifdef B460800
- 		case SERIAL_BAUD_460800: port_baud = B460800; break;
+		case SERIAL_BAUD_460800:  port_baud = B460800; break;
 #endif /* B460800 */
 #ifdef B921600
-		case SERIAL_BAUD_921600: port_baud = B921600; break;
+		case SERIAL_BAUD_921600:  port_baud = B921600; break;
 #endif /* B921600 */
 #ifdef B500000
-		case SERIAL_BAUD_500000: port_baud = B500000; break;
+		case SERIAL_BAUD_500000:  port_baud = B500000; break;
 #endif /* B500000 */
 #ifdef B576000
-		case SERIAL_BAUD_576000: port_baud = B576000; break;
+		case SERIAL_BAUD_576000:  port_baud = B576000; break;
 #endif /* B576000 */
 #ifdef B1000000
 		case SERIAL_BAUD_1000000: port_baud = B1000000; break;
@@ -114,7 +114,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 			return SERIAL_ERR_INVALID_BAUD;
 	}
 
-	switch(bits) {
+	switch (bits) {
 		case SERIAL_BITS_5: port_bits = CS5; break;
 		case SERIAL_BITS_6: port_bits = CS6; break;
 		case SERIAL_BITS_7: port_bits = CS7; break;
@@ -124,16 +124,16 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 			return SERIAL_ERR_INVALID_BITS;
 	}
 
-	switch(parity) {
-		case SERIAL_PARITY_NONE: port_parity = 0;                       break;
-		case SERIAL_PARITY_EVEN: port_parity = INPCK | PARENB;          break;
-		case SERIAL_PARITY_ODD : port_parity = INPCK | PARENB | PARODD; break;
+	switch (parity) {
+		case SERIAL_PARITY_NONE: port_parity = 0; break;
+		case SERIAL_PARITY_EVEN: port_parity = INPCK | PARENB; break;
+		case SERIAL_PARITY_ODD:  port_parity = INPCK | PARENB | PARODD; break;
 
 		default:
 			return SERIAL_ERR_INVALID_PARITY;
 	}
 
-	switch(stopbit) {
+	switch (stopbit) {
 		case SERIAL_STOPBIT_1: port_stop = 0;	   break;
 		case SERIAL_STOPBIT_2: port_stop = CSTOPB; break;
 
@@ -172,7 +172,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		CLOCAL		|
 		CREAD;
 
-	h->newtio.c_cc[VMIN ] = 0;
+	h->newtio.c_cc[VMIN] = 0;
 	h->newtio.c_cc[VTIME] = 5;	/* in units of 0.1 s */
 
 	/* set the settings */
@@ -181,25 +181,23 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		return SERIAL_ERR_SYSTEM;
 
 	/* confirm they were set */
-	struct termios settings;
 	tcgetattr(h->fd, &settings);
-	if (
-		settings.c_iflag != h->newtio.c_iflag ||
-		settings.c_oflag != h->newtio.c_oflag ||
-		settings.c_cflag != h->newtio.c_cflag ||
-		settings.c_lflag != h->newtio.c_lflag
-	)	return SERIAL_ERR_UNKNOWN;
+	if (settings.c_iflag != h->newtio.c_iflag ||
+	    settings.c_oflag != h->newtio.c_oflag ||
+	    settings.c_cflag != h->newtio.c_cflag ||
+	    settings.c_lflag != h->newtio.c_lflag)
+		return SERIAL_ERR_UNKNOWN;
 
 	snprintf(h->setup_str, sizeof(h->setup_str), "%u %d%c%d",
-		serial_get_baud_int(baud),
-		serial_get_bits_int(bits),
-		serial_get_parity_str(parity),
-		serial_get_stopbit_int(stopbit)
-	);
+		 serial_get_baud_int(baud),
+		 serial_get_bits_int(bits),
+		 serial_get_parity_str(parity),
+		 serial_get_stopbit_int(stopbit));
 	return SERIAL_ERR_OK;
 }
 
-static port_err_t serial_posix_open(struct port_interface *port, struct port_options *ops)
+static port_err_t serial_posix_open(struct port_interface *port,
+				    struct port_options *ops)
 {
 	serial_t *h;
 
@@ -224,10 +222,10 @@ static port_err_t serial_posix_open(struct port_interface *port, struct port_opt
 
 	/* 4. set options */
 	if (serial_setup(h, ops->baudRate,
-	    serial_get_bits(ops->serial_mode),
-	    serial_get_parity(ops->serial_mode),
-	    serial_get_stopbit(ops->serial_mode)
-	   ) != SERIAL_ERR_OK) {
+			 serial_get_bits(ops->serial_mode),
+			 serial_get_parity(ops->serial_mode),
+			 serial_get_stopbit(ops->serial_mode)
+			) != SERIAL_ERR_OK) {
 		serial_close(h);
 		return PORT_ERR_UNKNOWN;
 	}
