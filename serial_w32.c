@@ -36,7 +36,6 @@ struct serial {
 	DCB oldtio;
 	DCB newtio;
 
-	char			configured;
 	serial_baud_t		baud;
 	serial_bits_t		bits;
 	serial_parity_t		parity;
@@ -169,15 +168,6 @@ static serial_err_t serial_setup(serial_t *h,
 			return SERIAL_ERR_INVALID_STOPBIT;
 	}
 
-	/* if the port is already configured, no need to do anything */
-	if (
-		h->configured        &&
-		h->baud	   == baud   &&
-		h->bits	   == bits   &&
-		h->parity  == parity &&
-		h->stopbit == stopbit
-	) return SERIAL_ERR_OK;
-
 	/* reset the settings */
 	h->newtio.fOutxCtsFlow = FALSE;
 	h->newtio.fOutxDsrFlow = FALSE;
@@ -191,7 +181,6 @@ static serial_err_t serial_setup(serial_t *h,
 	if (!SetCommState(h->fd, &h->newtio))
 		return SERIAL_ERR_SYSTEM;
 
-	h->configured = 1;
 	h->baud	      = baud;
 	h->bits	      = bits;
 	h->parity     = parity;
@@ -202,7 +191,7 @@ static serial_err_t serial_setup(serial_t *h,
 static serial_err_t serial_write(const serial_t *h, const void *buffer,
 				 unsigned int len)
 {
-	assert(h && (h->fd != INVALID_HANDLE_VALUE) && h->configured);
+	assert(h && (h->fd != INVALID_HANDLE_VALUE));
 
 	DWORD r;
 	uint8_t *pos = (uint8_t*)buffer;
@@ -222,7 +211,7 @@ static serial_err_t serial_write(const serial_t *h, const void *buffer,
 static serial_err_t serial_read(const serial_t *h, void *buffer,
 				unsigned int len)
 {
-	assert(h && (h->fd != INVALID_HANDLE_VALUE) && h->configured);
+	assert(h && (h->fd != INVALID_HANDLE_VALUE));
 
 	DWORD r;
 	uint8_t *pos = (uint8_t*)buffer;
@@ -242,7 +231,7 @@ static serial_err_t serial_read(const serial_t *h, void *buffer,
 static const char *serial_get_setup_str(const serial_t *h)
 {
 	static char str[11];
-	if (!h->configured)
+	if (!h)
 		snprintf(str, sizeof(str), "INVALID");
 	else
 		snprintf(str, sizeof(str), "%u %d%c%d",
