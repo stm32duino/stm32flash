@@ -234,40 +234,6 @@ static serial_err_t serial_read(const serial_t *h, void *buffer,
 	return SERIAL_ERR_OK;
 }
 
-static serial_err_t serial_gpio(const serial_t *h, serial_gpio_t n, int level)
-{
-	int bit, lines;
-
-	switch(n) {
-		case GPIO_RTS:
-			bit = TIOCM_RTS;
-			break;
-
-		case GPIO_DTR:
-			bit = TIOCM_DTR;
-			break;
-
-		case GPIO_BRK:
-			if (level == 0)
-				return SERIAL_ERR_OK;
-			if (tcsendbreak(h->fd, 1))
-				return SERIAL_ERR_SYSTEM;
-			return SERIAL_ERR_OK;
-
-		default:
-			return SERIAL_ERR_NODATA;
-	}
-
-	/* handle RTS/DTR */
-	if (ioctl(h->fd, TIOCMGET, &lines))
-		return SERIAL_ERR_SYSTEM;
-	lines = level ? lines | bit : lines & ~bit;
-	if (ioctl(h->fd, TIOCMSET, &lines))
-		return SERIAL_ERR_SYSTEM;
-
-	return SERIAL_ERR_OK;
-}
-
 static port_err_t serial_posix_open(struct port_interface *port, struct port_options *ops)
 {
 	serial_t *h;
@@ -354,13 +320,40 @@ static port_err_t serial_posix_gpio(struct port_interface *port,
 				    serial_gpio_t n, int level)
 {
 	serial_t *h;
+	int bit, lines;
 
 	h = (serial_t *)port->private;
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
-	if (serial_gpio(h, n, level) == SERIAL_ERR_OK)
+
+	switch (n) {
+	case GPIO_RTS:
+		bit = TIOCM_RTS;
+		break;
+
+	case GPIO_DTR:
+		bit = TIOCM_DTR;
+		break;
+
+	case GPIO_BRK:
+		if (level == 0)
+			return PORT_ERR_OK;
+		if (tcsendbreak(h->fd, 1))
+			return PORT_ERR_UNKNOWN;
 		return PORT_ERR_OK;
-	return PORT_ERR_UNKNOWN;
+
+	default:
+		return PORT_ERR_UNKNOWN;
+	}
+
+	/* handle RTS/DTR */
+	if (ioctl(h->fd, TIOCMGET, &lines))
+		return PORT_ERR_UNKNOWN;
+	lines = level ? lines | bit : lines & ~bit;
+	if (ioctl(h->fd, TIOCMSET, &lines))
+		return PORT_ERR_UNKNOWN;
+
+	return PORT_ERR_OK;
 }
 
 static const char *serial_posix_get_cfg_str(struct port_interface *port)
