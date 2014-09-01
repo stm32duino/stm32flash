@@ -180,42 +180,6 @@ static serial_err_t serial_setup(serial_t *h,
 	return SERIAL_ERR_OK;
 }
 
-static serial_err_t serial_write(const serial_t *h, const void *buffer,
-				 unsigned int len)
-{
-	DWORD r;
-	uint8_t *pos = (uint8_t*)buffer;
-
-	while(len > 0) {
-		if(!WriteFile(h->fd, pos, len, &r, NULL))
-			return SERIAL_ERR_SYSTEM;
-		if (r < 1) return SERIAL_ERR_SYSTEM;
-
-		len -= r;
-		pos += r;
-	}
-
-	return SERIAL_ERR_OK;
-}
-
-static serial_err_t serial_read(const serial_t *h, void *buffer,
-				unsigned int len)
-{
-	DWORD r;
-	uint8_t *pos = (uint8_t*)buffer;
-
-	while(len > 0) {
-		ReadFile(h->fd, pos, len, &r, NULL);
-		      if (r == 0) return SERIAL_ERR_NODATA;
-		else  if (r <  0) return SERIAL_ERR_SYSTEM;
-
-		len -= r;
-		pos += r;
-	}
-
-	return SERIAL_ERR_OK;
-}
-
 static port_err_t serial_w32_open(struct port_interface *port, struct port_options *ops)
 {
 	serial_t *h;
@@ -270,31 +234,46 @@ static port_err_t serial_w32_close(struct port_interface *port)
 static port_err_t serial_w32_read(struct port_interface *port, void *buf, size_t nbyte)
 {
 	serial_t *h;
-	serial_err_t ret;
+	DWORD r;
+	uint8_t *pos = (uint8_t *)buf;
 
 	h = (serial_t *)port->private;
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
 
-	ret = serial_read(h, buf, nbyte);
-	if (ret == SERIAL_ERR_OK)
-		return PORT_ERR_OK;
-	if (ret == SERIAL_ERR_NODATA)
-		return PORT_ERR_TIMEDOUT;
-	return PORT_ERR_UNKNOWN;
+	while (nbyte) {
+		ReadFile(h->fd, pos, nbyte, &r, NULL);
+		if (r == 0)
+			return PORT_ERR_TIMEDOUT;
+		if (r < 0)
+			return PORT_ERR_UNKNOWN;
+
+		nbyte -= r;
+		pos += r;
+	}
+	return PORT_ERR_OK;
 }
 
 static port_err_t serial_w32_write(struct port_interface *port, void *buf, size_t nbyte)
 {
 	serial_t *h;
+	DWORD r;
+	uint8_t *pos = (uint8_t *)buf;
 
 	h = (serial_t *)port->private;
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
 
-	if (serial_write(h, buf, nbyte) == SERIAL_ERR_OK)
-		return PORT_ERR_OK;
-	return PORT_ERR_UNKNOWN;
+	while (nbyte) {
+		if (!WriteFile(h->fd, pos, nbyte, &r, NULL))
+			return PORT_ERR_UNKNOWN;
+		if (r < 1)
+			return PORT_ERR_UNKNOWN;
+
+		nbyte -= r;
+		pos += r;
+	}
+	return PORT_ERR_OK;
 }
 
 static port_err_t serial_w32_gpio(struct port_interface *port,
