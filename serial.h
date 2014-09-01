@@ -80,13 +80,13 @@ typedef enum {
 } serial_gpio_t;
 
 /* common helper functions */
-serial_baud_t      serial_get_baud       (const unsigned int baud);
-unsigned int serial_get_baud_int   (const serial_baud_t baud);
-serial_bits_t      serial_get_bits       (const char *mode);
-unsigned int serial_get_bits_int   (const serial_bits_t bits);
-serial_parity_t    serial_get_parity     (const char *mode);
-char         serial_get_parity_str (const serial_parity_t parity);
-serial_stopbit_t   serial_get_stopbit    (const char *mode);
+serial_baud_t serial_get_baud(const unsigned int baud);
+unsigned int serial_get_baud_int(const serial_baud_t baud);
+serial_bits_t serial_get_bits(const char *mode);
+unsigned int serial_get_bits_int(const serial_bits_t bits);
+serial_parity_t serial_get_parity(const char *mode);
+char serial_get_parity_str(const serial_parity_t parity);
+serial_stopbit_t serial_get_stopbit(const char *mode);
 unsigned int serial_get_stopbit_int(const serial_stopbit_t stopbit);
 
 #endif
