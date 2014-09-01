@@ -48,7 +48,7 @@ static serial_t *serial_open(const char *device)
 		devName = calloc(1, strlen(device) + 5);
 		sprintf(devName, "\\\\.\\%s", device);
 	} else {
-		devName = device;
+		devName = (char *)device;
 	}
 
 	/* Create file handle for port */
