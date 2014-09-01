@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <termios.h>
 #include <stdio.h>
-#include <assert.h>
 #include <sys/ioctl.h>
 
 #include "serial.h"
@@ -60,14 +59,11 @@ static serial_t *serial_open(const char *device)
 
 static void serial_flush(const serial_t *h)
 {
-	assert(h && h->fd > -1);
 	tcflush(h->fd, TCIFLUSH);
 }
 
 static void serial_close(serial_t *h)
 {
-	assert(h && h->fd > -1);
-
 	serial_flush(h);
 	tcsetattr(h->fd, TCSANOW, &h->oldtio);
 	close(h->fd);
@@ -79,8 +75,6 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 				 const serial_parity_t parity,
 				 const serial_stopbit_t stopbit)
 {
-	assert(h && h->fd > -1);
-
 	speed_t		port_baud;
 	tcflag_t	port_bits;
 	tcflag_t	port_parity;
@@ -210,8 +204,6 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 static serial_err_t serial_write(const serial_t *h, const void *buffer,
 				 unsigned int len)
 {
-	assert(h && h->fd > -1);
-
 	ssize_t r;
 	const uint8_t *pos = (const uint8_t*)buffer;
 
@@ -229,8 +221,6 @@ static serial_err_t serial_write(const serial_t *h, const void *buffer,
 static serial_err_t serial_read(const serial_t *h, void *buffer,
 				unsigned int len)
 {
-	assert(h && h->fd > -1);
-
 	ssize_t r;
 	uint8_t *pos = (uint8_t*)buffer;
 

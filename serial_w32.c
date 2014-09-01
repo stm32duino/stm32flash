@@ -24,7 +24,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include <windows.h>
 
@@ -91,15 +90,12 @@ static serial_t *serial_open(const char *device)
 
 static void serial_flush(const serial_t *h)
 {
-	assert(h && (h->fd != INVALID_HANDLE_VALUE));
 	/* We shouldn't need to flush in non-overlapping (blocking) mode */
 	/* tcflush(h->fd, TCIFLUSH); */
 }
 
 static void serial_close(serial_t *h)
 {
-	assert(h && h->fd != INVALID_HANDLE_VALUE);
-
 	serial_flush(h);
 	SetCommState(h->fd, &h->oldtio);
 	CloseHandle(h->fd);
@@ -112,8 +108,6 @@ static serial_err_t serial_setup(serial_t *h,
 			  const serial_parity_t parity, 
 			  const serial_stopbit_t stopbit) 
 {
-	assert(h && h->fd != INVALID_HANDLE_VALUE);
-
 	switch(baud) {
 		case SERIAL_BAUD_1200  : h->newtio.BaudRate = CBR_1200  ; break;
 		//case SERIAL_BAUD_1800  : h->newtio.BaudRate = CBR_1800  ; break;
@@ -191,8 +185,6 @@ static serial_err_t serial_setup(serial_t *h,
 static serial_err_t serial_write(const serial_t *h, const void *buffer,
 				 unsigned int len)
 {
-	assert(h && (h->fd != INVALID_HANDLE_VALUE));
-
 	DWORD r;
 	uint8_t *pos = (uint8_t*)buffer;
 
@@ -211,8 +203,6 @@ static serial_err_t serial_write(const serial_t *h, const void *buffer,
 static serial_err_t serial_read(const serial_t *h, void *buffer,
 				unsigned int len)
 {
-	assert(h && (h->fd != INVALID_HANDLE_VALUE));
-
 	DWORD r;
 	uint8_t *pos = (uint8_t*)buffer;
 
