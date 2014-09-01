@@ -216,11 +216,6 @@ static serial_err_t serial_read(const serial_t *h, void *buffer,
 	return SERIAL_ERR_OK;
 }
 
-static const char *serial_get_setup_str(const serial_t *h)
-{
-	return h ? h->setup_str : "INVALID";
-}
-
 static serial_err_t serial_gpio(const serial_t *h, serial_gpio_t n, int level)
 {
 	int bit;
@@ -354,7 +349,7 @@ static const char *serial_w32_get_cfg_str(struct port_interface *port)
 	serial_t *h;
 
 	h = (serial_t *)port->private;
-	return serial_get_setup_str(h);
+	return h ? h->setup_str : "INVALID";
 }
 
 struct port_interface port_serial = {
