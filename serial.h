@@ -74,18 +74,6 @@ typedef enum {
 } serial_stopbit_t;
 
 typedef enum {
-	SERIAL_ERR_OK = 0,
-
-	SERIAL_ERR_SYSTEM,
-	SERIAL_ERR_UNKNOWN,
-	SERIAL_ERR_INVALID_BAUD,
-	SERIAL_ERR_INVALID_BITS,
-	SERIAL_ERR_INVALID_PARITY,
-	SERIAL_ERR_INVALID_STOPBIT,
-	SERIAL_ERR_NODATA
-} serial_err_t;
-
-typedef enum {
 	GPIO_RTS = 1,
 	GPIO_DTR,
 	GPIO_BRK,

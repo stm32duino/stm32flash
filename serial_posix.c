@@ -65,10 +65,10 @@ static void serial_close(serial_t *h)
 	free(h);
 }
 
-static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
-				 const serial_bits_t bits,
-				 const serial_parity_t parity,
-				 const serial_stopbit_t stopbit)
+static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
+			       const serial_bits_t bits,
+			       const serial_parity_t parity,
+			       const serial_stopbit_t stopbit)
 {
 	speed_t	port_baud;
 	tcflag_t port_bits;
@@ -111,7 +111,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 
 		case SERIAL_BAUD_INVALID:
 		default:
-			return SERIAL_ERR_INVALID_BAUD;
+			return PORT_ERR_UNKNOWN;
 	}
 
 	switch (bits) {
@@ -121,7 +121,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		case SERIAL_BITS_8: port_bits = CS8; break;
 
 		default:
-			return SERIAL_ERR_INVALID_BITS;
+			return PORT_ERR_UNKNOWN;
 	}
 
 	switch (parity) {
@@ -130,7 +130,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		case SERIAL_PARITY_ODD:  port_parity = INPCK | PARENB | PARODD; break;
 
 		default:
-			return SERIAL_ERR_INVALID_PARITY;
+			return PORT_ERR_UNKNOWN;
 	}
 
 	switch (stopbit) {
@@ -138,7 +138,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		case SERIAL_STOPBIT_2: port_stop = CSTOPB; break;
 
 		default:
-			return SERIAL_ERR_INVALID_STOPBIT;
+			return PORT_ERR_UNKNOWN;
 	}
 
 	/* reset the settings */
@@ -178,7 +178,7 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 	/* set the settings */
 	serial_flush(h);
 	if (tcsetattr(h->fd, TCSANOW, &h->newtio) != 0)
-		return SERIAL_ERR_SYSTEM;
+		return PORT_ERR_UNKNOWN;
 
 	/* confirm they were set */
 	tcgetattr(h->fd, &settings);
@@ -186,14 +186,14 @@ static serial_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 	    settings.c_oflag != h->newtio.c_oflag ||
 	    settings.c_cflag != h->newtio.c_cflag ||
 	    settings.c_lflag != h->newtio.c_lflag)
-		return SERIAL_ERR_UNKNOWN;
+		return PORT_ERR_UNKNOWN;
 
 	snprintf(h->setup_str, sizeof(h->setup_str), "%u %d%c%d",
 		 serial_get_baud_int(baud),
 		 serial_get_bits_int(bits),
 		 serial_get_parity_str(parity),
 		 serial_get_stopbit_int(stopbit));
-	return SERIAL_ERR_OK;
+	return PORT_ERR_OK;
 }
 
 static port_err_t serial_posix_open(struct port_interface *port,
@@ -225,7 +225,7 @@ static port_err_t serial_posix_open(struct port_interface *port,
 			 serial_get_bits(ops->serial_mode),
 			 serial_get_parity(ops->serial_mode),
 			 serial_get_stopbit(ops->serial_mode)
-			) != SERIAL_ERR_OK) {
+			) != PORT_ERR_OK) {
 		serial_close(h);
 		return PORT_ERR_UNKNOWN;
 	}
