@@ -18,13 +18,11 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-
-#include <stdlib.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdio.h>
-
 #include <windows.h>
 
 #include "serial.h"
@@ -40,12 +38,12 @@ struct serial {
 static serial_t *serial_open(const char *device)
 {
 	serial_t *h = calloc(sizeof(serial_t), 1);
+	char *devName;
 
 	/* timeout in ms */
 	COMMTIMEOUTS timeouts = {MAXDWORD, MAXDWORD, 500, 0, 0};
 
 	/* Fix the device name if required */
-	char *devName;
 	if (strlen(device) > 4 && device[0] != '\\') {
 		devName = calloc(1, strlen(device) + 5);
 		sprintf(devName, "\\\\.\\%s", device);
@@ -54,16 +52,16 @@ static serial_t *serial_open(const char *device)
 	}
 
 	/* Create file handle for port */
-	h->fd = CreateFile(devName, GENERIC_READ | GENERIC_WRITE, 
-			0, /* Exclusive access */
-			NULL, /* No security */
-			OPEN_EXISTING,
-			0, //FILE_FLAG_OVERLAPPED,
-			NULL);
+	h->fd = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
+			   0,		/* Exclusive access */
+			   NULL,	/* No security */
+			   OPEN_EXISTING,
+			   0,		/* No overlap */
+			   NULL);
 
 	if (devName != device)
 		free(devName);
-	
+
 	if (h->fd == INVALID_HANDLE_VALUE) {
 		if (GetLastError() == ERROR_FILE_NOT_FOUND)
 			fprintf(stderr, "File not found: %s\n", device);
@@ -79,7 +77,7 @@ static serial_t *serial_open(const char *device)
 	GetCommState(h->fd, &h->oldtio); /* Retrieve port parameters */
 	GetCommState(h->fd, &h->newtio); /* Retrieve port parameters */
 
-	//PurgeComm(h->fd, PURGE_RXABORT | PURGE_TXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR);
+	/* PurgeComm(h->fd, PURGE_RXABORT | PURGE_TXCLEAR | PURGE_TXABORT | PURGE_TXCLEAR); */
 
 	return h;
 }
@@ -99,39 +97,39 @@ static void serial_close(serial_t *h)
 }
 
 static serial_err_t serial_setup(serial_t *h,
-			  const serial_baud_t baud, 
-			  const serial_bits_t bits, 
-			  const serial_parity_t parity, 
-			  const serial_stopbit_t stopbit) 
+				 const serial_baud_t baud,
+				 const serial_bits_t bits,
+				 const serial_parity_t parity,
+				 const serial_stopbit_t stopbit)
 {
-	switch(baud) {
-		case SERIAL_BAUD_1200  : h->newtio.BaudRate = CBR_1200  ; break;
-		//case SERIAL_BAUD_1800  : h->newtio.BaudRate = CBR_1800  ; break;
-		case SERIAL_BAUD_2400  : h->newtio.BaudRate = CBR_2400  ; break;
-		case SERIAL_BAUD_4800  : h->newtio.BaudRate = CBR_4800  ; break;
-		case SERIAL_BAUD_9600  : h->newtio.BaudRate = CBR_9600  ; break;
-		case SERIAL_BAUD_19200 : h->newtio.BaudRate = CBR_19200 ; break;
-		case SERIAL_BAUD_38400 : h->newtio.BaudRate = CBR_38400 ; break;
-		case SERIAL_BAUD_57600 : h->newtio.BaudRate = CBR_57600 ; break;
-		case SERIAL_BAUD_115200: h->newtio.BaudRate = CBR_115200; break;
-		case SERIAL_BAUD_128000: h->newtio.BaudRate = CBR_128000; break;
-		case SERIAL_BAUD_256000: h->newtio.BaudRate = CBR_256000; break;
+	switch (baud) {
+		case SERIAL_BAUD_1200:    h->newtio.BaudRate = CBR_1200; break;
+		/* case SERIAL_BAUD_1800: h->newtio.BaudRate = CBR_1800; break; */
+		case SERIAL_BAUD_2400:    h->newtio.BaudRate = CBR_2400; break;
+		case SERIAL_BAUD_4800:    h->newtio.BaudRate = CBR_4800; break;
+		case SERIAL_BAUD_9600:    h->newtio.BaudRate = CBR_9600; break;
+		case SERIAL_BAUD_19200:   h->newtio.BaudRate = CBR_19200; break;
+		case SERIAL_BAUD_38400:   h->newtio.BaudRate = CBR_38400; break;
+		case SERIAL_BAUD_57600:   h->newtio.BaudRate = CBR_57600; break;
+		case SERIAL_BAUD_115200:  h->newtio.BaudRate = CBR_115200; break;
+		case SERIAL_BAUD_128000:  h->newtio.BaudRate = CBR_128000; break;
+		case SERIAL_BAUD_256000:  h->newtio.BaudRate = CBR_256000; break;
 		/* These are not defined in WinBase.h and might work or not */
-		case SERIAL_BAUD_230400: h->newtio.BaudRate = 230400; break;
- 		case SERIAL_BAUD_460800: h->newtio.BaudRate = 460800; break;
-		case SERIAL_BAUD_500000: h->newtio.BaudRate = 500000; break;
-		case SERIAL_BAUD_576000: h->newtio.BaudRate = 576000; break;
-		case SERIAL_BAUD_921600: h->newtio.BaudRate = 921600; break;
+		case SERIAL_BAUD_230400:  h->newtio.BaudRate = 230400; break;
+		case SERIAL_BAUD_460800:  h->newtio.BaudRate = 460800; break;
+		case SERIAL_BAUD_500000:  h->newtio.BaudRate = 500000; break;
+		case SERIAL_BAUD_576000:  h->newtio.BaudRate = 576000; break;
+		case SERIAL_BAUD_921600:  h->newtio.BaudRate = 921600; break;
 		case SERIAL_BAUD_1000000: h->newtio.BaudRate = 1000000; break;
 		case SERIAL_BAUD_1500000: h->newtio.BaudRate = 1500000; break;
 		case SERIAL_BAUD_2000000: h->newtio.BaudRate = 2000000; break;
-
 		case SERIAL_BAUD_INVALID:
+
 		default:
 			return SERIAL_ERR_INVALID_BAUD;
 	}
 
-	switch(bits) {
+	switch (bits) {
 		case SERIAL_BITS_5: h->newtio.ByteSize = 5; break;
 		case SERIAL_BITS_6: h->newtio.ByteSize = 6; break;
 		case SERIAL_BITS_7: h->newtio.ByteSize = 7; break;
@@ -141,16 +139,16 @@ static serial_err_t serial_setup(serial_t *h,
 			return SERIAL_ERR_INVALID_BITS;
 	}
 
-	switch(parity) {
+	switch (parity) {
 		case SERIAL_PARITY_NONE: h->newtio.Parity = NOPARITY;   break;
 		case SERIAL_PARITY_EVEN: h->newtio.Parity = EVENPARITY; break;
-		case SERIAL_PARITY_ODD : h->newtio.Parity = ODDPARITY;  break;
+		case SERIAL_PARITY_ODD:  h->newtio.Parity = ODDPARITY;  break;
 
 		default:
 			return SERIAL_ERR_INVALID_PARITY;
 	}
 
-	switch(stopbit) {
+	switch (stopbit) {
 		case SERIAL_STOPBIT_1: h->newtio.StopBits = ONESTOPBIT;	 break;
 		case SERIAL_STOPBIT_2: h->newtio.StopBits = TWOSTOPBITS; break;
 
@@ -180,13 +178,16 @@ static serial_err_t serial_setup(serial_t *h,
 	return SERIAL_ERR_OK;
 }
 
-static port_err_t serial_w32_open(struct port_interface *port, struct port_options *ops)
+static port_err_t serial_w32_open(struct port_interface *port,
+				  struct port_options *ops)
 {
 	serial_t *h;
 
 	/* 1. check device name match */
-	if (!(strlen(ops->device) == 4 && !strncmp(ops->device, "COM", 3) && isdigit(ops->device[3]))
-	    && !(!strncmp(ops->device, "\\\\.\\COM", strlen("\\\\.\\COM")) && isdigit(ops->device[strlen("\\\\.\\COM")])))
+	if (!(strlen(ops->device) == 4
+	      && !strncmp(ops->device, "COM", 3) && isdigit(ops->device[3]))
+	    && !(!strncmp(ops->device, "\\\\.\\COM", strlen("\\\\.\\COM"))
+		 && isdigit(ops->device[strlen("\\\\.\\COM")])))
 		return PORT_ERR_NODEV;
 
 	/* 2. check options */
@@ -231,7 +232,8 @@ static port_err_t serial_w32_close(struct port_interface *port)
 	return PORT_ERR_OK;
 }
 
-static port_err_t serial_w32_read(struct port_interface *port, void *buf, size_t nbyte)
+static port_err_t serial_w32_read(struct port_interface *port, void *buf,
+				  size_t nbyte)
 {
 	serial_t *h;
 	DWORD r;
@@ -254,7 +256,8 @@ static port_err_t serial_w32_read(struct port_interface *port, void *buf, size_t
 	return PORT_ERR_OK;
 }
 
-static port_err_t serial_w32_write(struct port_interface *port, void *buf, size_t nbyte)
+static port_err_t serial_w32_write(struct port_interface *port, void *buf,
+				   size_t nbyte)
 {
 	serial_t *h;
 	DWORD r;
