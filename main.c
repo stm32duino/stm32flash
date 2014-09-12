@@ -114,6 +114,7 @@ static uint32_t flash_page_to_addr(int page)
 int main(int argc, char* argv[]) {
 	struct port_interface *port = NULL;
 	int ret = 1;
+	stm32_err_t s_err;
 	parser_err_t perr;
 	FILE *diag = stdout;
 
@@ -273,7 +274,8 @@ int main(int argc, char* argv[]) {
 		while(addr < end) {
 			uint32_t left	= end - addr;
 			len		= sizeof(buffer) > left ? left : sizeof(buffer);
-			if (!stm32_read_memory(stm, addr, buffer, len)) {
+			s_err = stm32_read_memory(stm, addr, buffer, len);
+			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x, target write-protected?\n", addr);
 				goto close;
 			}
@@ -318,7 +320,8 @@ int main(int argc, char* argv[]) {
 			goto close;
 		}
 
-		if (!stm32_erase_memory(stm, first_page, num_pages)) {
+		s_err = stm32_erase_memory(stm, first_page, num_pages);
+		if (s_err != STM32_ERR_OK) {
 			fprintf(stderr, "Failed to erase memory\n");
 			ret = 1;
 			goto close;
@@ -354,7 +357,8 @@ int main(int argc, char* argv[]) {
 		//       contents first, so it can be preserved and combined with new data
 		if (!no_erase && num_pages) {
 			fprintf(diag, "Erasing memory\n");
-			if (!stm32_erase_memory(stm, first_page, num_pages)) {
+			s_err = stm32_erase_memory(stm, first_page, num_pages);
+			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Failed to erase memory\n");
 				goto close;
 			}
@@ -380,14 +384,16 @@ int main(int argc, char* argv[]) {
 			}
 	
 			again:
-			if (!stm32_write_memory(stm, addr, buffer, len)) {
+			s_err = stm32_write_memory(stm, addr, buffer, len);
+			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Failed to write memory at address 0x%08x\n", addr);
 				goto close;
 			}
 
 			if (verify) {
 				uint8_t compare[len];
-				if (!stm32_read_memory(stm, addr, compare, len)) {
+				s_err = stm32_read_memory(stm, addr, compare, len);
+				if (s_err != STM32_ERR_OK) {
 					fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
 					goto close;
 				}
@@ -430,7 +436,8 @@ int main(int argc, char* argv[]) {
 
 		fprintf(diag, "CRC computation\n");
 
-		if (!stm32_crc_wrapper(stm, start, end - start, &crc_val)) {
+		s_err = stm32_crc_wrapper(stm, start, end - start, &crc_val);
+		if (s_err != STM32_ERR_OK) {
 			fprintf(stderr, "Failed to read CRC\n");
 			goto close;
 		}
@@ -448,7 +455,7 @@ close:
 
 		fprintf(diag, "\nStarting execution at address 0x%08x... ", execute);
 		fflush(diag);
-		if (stm32_go(stm, execute)) {
+		if (stm32_go(stm, execute) == STM32_ERR_OK) {
 			reset_flag = 0;
 			fprintf(diag, "done.\n");
 		} else

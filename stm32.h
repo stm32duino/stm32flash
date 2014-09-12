@@ -24,6 +24,11 @@
 #include <stdint.h>
 #include "serial.h"
 
+typedef enum {
+	STM32_ERR_UNKNOWN = 0,	/* Generic error */
+	STM32_ERR_OK,
+} stm32_err_t;
+
 typedef struct stm32		stm32_t;
 typedef struct stm32_cmd	stm32_cmd_t;
 typedef struct stm32_dev	stm32_dev_t;
@@ -50,20 +55,23 @@ struct stm32_dev {
 	uint32_t	mem_start, mem_end;
 };
 
-stm32_t *stm32_init      (struct port_interface *port, const char init);
-void stm32_close         (stm32_t *stm);
-char stm32_read_memory   (const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len);
-char stm32_write_memory  (const stm32_t *stm, uint32_t address, const uint8_t data[], unsigned int len);
-char stm32_wunprot_memory(const stm32_t *stm);
-char stm32_erase_memory  (const stm32_t *stm, uint8_t spage, uint8_t pages);
-char stm32_go            (const stm32_t *stm, uint32_t address);
-char stm32_reset_device  (const stm32_t *stm);
-char stm32_readprot_memory (const stm32_t *stm);
-char stm32_runprot_memory  (const stm32_t *stm);
-char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
-		      uint32_t *crc);
-char stm32_crc_wrapper(const stm32_t *stm, uint32_t address, uint32_t length,
-		       uint32_t *crc);
+stm32_t *stm32_init(struct port_interface *port, const char init);
+void stm32_close(stm32_t *stm);
+stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
+			      uint8_t data[], unsigned int len);
+stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
+			       const uint8_t data[], unsigned int len);
+stm32_err_t stm32_wunprot_memory(const stm32_t *stm);
+stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage,
+			       uint8_t pages);
+stm32_err_t stm32_go(const stm32_t *stm, uint32_t address);
+stm32_err_t stm32_reset_device(const stm32_t *stm);
+stm32_err_t stm32_readprot_memory(const stm32_t *stm);
+stm32_err_t stm32_runprot_memory(const stm32_t *stm);
+stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
+			     uint32_t length, uint32_t *crc);
+stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
+			      uint32_t length, uint32_t *crc);
 uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len);
 
 #endif

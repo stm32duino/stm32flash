@@ -132,8 +132,8 @@ static uint8_t stm32_get_ack(const stm32_t *stm)
 	return stm32_get_ack_timeout(stm, 0);
 }
 
-char stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
-				time_t timeout)
+stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
+				       time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	int ret;
@@ -144,26 +144,26 @@ char stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 	ret = port->write(port, buf, 2);
 	if (ret != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send command\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 	ret = stm32_get_ack_timeout(stm, timeout);
 	if (ret == STM32_ACK) {
-		return 1;
+		return STM32_ERR_OK;
 	} else if (ret == STM32_NACK) {
 		fprintf(stderr, "Got NACK from device on command 0x%02x\n", cmd);
 	} else {
 		fprintf(stderr, "Unexpected reply from device on command 0x%02x\n", cmd);
 	}
-	return 0;
+	return STM32_ERR_UNKNOWN;
 }
 
-char stm32_send_command(const stm32_t *stm, const uint8_t cmd)
+stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 {
 	return stm32_send_command_timeout(stm, cmd, 0);
 }
 
 /* if we have lost sync, send a wrong command and expect a NACK */
-static int stm32_resync(const stm32_t *stm)
+static stm32_err_t stm32_resync(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
 	int err;
@@ -188,10 +188,10 @@ static int stm32_resync(const stm32_t *stm)
 			continue;
 		}
 		if (ack == STM32_NACK)
-			return 1;
+			return STM32_ERR_OK;
 		time(&t1);
 	}
-	return 0;
+	return STM32_ERR_UNKNOWN;
 }
 
 /*
@@ -206,46 +206,51 @@ static int stm32_resync(const stm32_t *stm)
  *
  * len is value of the first byte in the frame.
  */
-static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
-				uint8_t *data, unsigned int len) {
+static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
+				       uint8_t *data, unsigned int len)
+{
 	struct port_interface *port = stm->port;
 	int err;
 
-	if (!stm32_send_command(stm, cmd))
-		return 0;
+	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 	if (port->flags & PORT_BYTE) {
 		/* interface is UART-like */
 		err = port->read(port, data, 1);
 		if (err != PORT_ERR_OK)
-			return 0;
+			return STM32_ERR_UNKNOWN;
 		len = data[0];
 		err = port->read(port, data + 1, len + 1);
-		return err == PORT_ERR_OK;
+		if (err != PORT_ERR_OK)
+			return STM32_ERR_UNKNOWN;
+		return STM32_ERR_OK;
 	}
 
 	err = port->read(port, data, len + 2);
 	if (err == PORT_ERR_OK && len == data[0])
-		return 1;
+		return STM32_ERR_OK;
 	if (err != PORT_ERR_OK) {
 		/* restart with only one byte */
-		if (stm32_resync(stm) == 0)
-			return 0;
-		if (!stm32_send_command(stm, cmd))
-			return 0;
+		if (stm32_resync(stm) != STM32_ERR_OK)
+			return STM32_ERR_UNKNOWN;
+		if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+			return STM32_ERR_UNKNOWN;
 		err = port->read(port, data, 1);
 		if (err != PORT_ERR_OK)
-			return 0;
+			return STM32_ERR_UNKNOWN;
 	}
 
 	fprintf(stderr, "Re sync (len = %d)\n", data[0]);
-	if (stm32_resync(stm) == 0)
-		return 0;
+	if (stm32_resync(stm) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	len = data[0];
-	if (!stm32_send_command(stm, cmd))
-		return 0;
+	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 	err = port->read(port, data, len + 2);
-	return err == PORT_ERR_OK;
+	if (err != PORT_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
 /*
@@ -260,7 +265,7 @@ static int stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
  * This function sends the init sequence and, in case of timeout, recovers
  * the interface.
  */
-static char stm32_send_init_seq(const stm32_t *stm)
+static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
 	int ret;
@@ -269,20 +274,20 @@ static char stm32_send_init_seq(const stm32_t *stm)
 	ret = port->write(port, &cmd, 1);
 	if (ret != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send init to device\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 	ret = port->read(port, &byte, 1);
 	if (ret == PORT_ERR_OK && byte == STM32_ACK)
-		return 1;
+		return STM32_ERR_OK;
 	if (ret == PORT_ERR_OK && byte == STM32_NACK) {
 		/* We could get error later, but let's continue, for now. */
 		fprintf(stderr,
 			"Warning: the interface was not closed properly.\n");
-		return 1;
+		return STM32_ERR_OK;
 	}
 	if (ret != PORT_ERR_TIMEDOUT) {
 		fprintf(stderr, "Failed to init device.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
 	/*
@@ -292,13 +297,13 @@ static char stm32_send_init_seq(const stm32_t *stm)
 	ret = port->write(port, &cmd, 1);
 	if (ret != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send init to device\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 	ret = port->read(port, &byte, 1);
 	if (ret == PORT_ERR_OK && byte == STM32_NACK)
-		return 1;
+		return STM32_ERR_OK;
 	fprintf(stderr, "Failed to init device.\n");
-	return 0;
+	return STM32_ERR_UNKNOWN;
 }
 
 /* find newer command by higher code */
@@ -318,11 +323,11 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	stm->port = port;
 
 	if ((port->flags & PORT_CMD_INIT) && init)
-		if (!stm32_send_init_seq(stm))
+		if (stm32_send_init_seq(stm) != STM32_ERR_OK)
 			return NULL;
 
 	/* get the version and read protection status  */
-	if (!stm32_send_command(stm, STM32_CMD_GVR)) {
+	if (stm32_send_command(stm, STM32_CMD_GVR) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -347,7 +352,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 				len = port->cmd_get_reply[i].length;
 				break;
 			}
-	if (!stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, len))
+	if (stm32_guess_len_cmd(stm, STM32_CMD_GET, buf, len) != STM32_ERR_OK)
 		return NULL;
 	len = buf[0] + 1;
 	stm->bl_version = buf[1];
@@ -418,7 +423,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	}
 
 	/* get the device ID */
-	if (!stm32_guess_len_cmd(stm, stm->cmd->gid, buf, 1)) {
+	if (stm32_guess_len_cmd(stm, stm->cmd->gid, buf, 1) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -458,7 +463,9 @@ void stm32_close(stm32_t *stm) {
 	free(stm);
 }
 
-char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], unsigned int len) {
+stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
+			      uint8_t data[], unsigned int len)
+{
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 	assert(len > 0 && len < 257);
@@ -468,10 +475,11 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 
 	if (stm->cmd->rm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->rm)) return 0;
+	if (stm32_send_command(stm, stm->cmd->rm) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
 	buf[1] = (address >> 16) & 0xFF;
@@ -479,20 +487,22 @@ char stm32_read_memory(const stm32_t *stm, uint32_t address, uint8_t data[], uns
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	if (stm32_get_ack(stm) != STM32_ACK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
-	if (!stm32_send_command(stm, len - 1))
-		return 0;
+	if (stm32_send_command(stm, len - 1) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	if (port->read(port, data, len) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
-	return 1;
+	return STM32_ERR_OK;
 }
 
-char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data[], unsigned int len) {
+stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
+			       const uint8_t data[], unsigned int len)
+{
 	struct port_interface *port = stm->port;
 	uint8_t cs, buf[256 + 2];
 	unsigned int i, aligned_len;
@@ -504,11 +514,12 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 
 	if (stm->cmd->wm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
 	/* send the address and checksum */
-	if (!stm32_send_command(stm, stm->cmd->wm)) return 0;
+	if (stm32_send_command(stm, stm->cmd->wm) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
 	buf[1] = (address >> 16) & 0xFF;
@@ -516,9 +527,9 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	if (stm32_get_ack(stm) != STM32_ACK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	aligned_len = (len + 3) & ~3;
 	cs = aligned_len - 1;
@@ -534,61 +545,72 @@ char stm32_write_memory(const stm32_t *stm, uint32_t address, const uint8_t data
 	}
 	buf[aligned_len + 1] = cs;
 	if (port->write(port, buf, aligned_len + 2) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	ret = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
-	return ret == STM32_ACK;
+	if (ret != STM32_ACK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
-char stm32_wunprot_memory(const stm32_t *stm) {
+stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
+{
 	if (stm->cmd->uw == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE UNPROTECT command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->uw)) return 0;
-	if (!stm32_send_command(stm, 0x8C        )) return 0;
-	return 1;
+	if (stm32_send_command(stm, stm->cmd->uw) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	if (stm32_send_command(stm, 0x8C) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
-char stm32_runprot_memory  (const stm32_t *stm) {
+stm32_err_t stm32_runprot_memory(const stm32_t *stm)
+{
 	if (stm->cmd->ur == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ UNPROTECT command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->ur)) return 0;
-	if (!stm32_send_command(stm, 0x6D        )) return 0;
-	return 1;
+	if (stm32_send_command(stm, stm->cmd->ur) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	if (stm32_send_command(stm, 0x6D) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
-char stm32_readprot_memory(const stm32_t *stm) {
+stm32_err_t stm32_readprot_memory(const stm32_t *stm)
+{
 	if (stm->cmd->rp == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ PROTECT command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->rp)) return 0;
-	if (!stm32_send_command(stm, 0x7D        )) return 0;
-	return 1;
+	if (stm32_send_command(stm, stm->cmd->rp) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	if (stm32_send_command(stm, 0x7D) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
-char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
+stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 {
 	struct port_interface *port = stm->port;
 	int ret;
 
 	if (!pages)
-		return 1;
+		return STM32_ERR_OK;
 
 	if (stm->cmd->er == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: ERASE command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->er)) {
+	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
 	/* The erase command reported by the bootloader is either 0x43, 0x44 or 0x45 */
@@ -610,14 +632,14 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			buf[2] = 0x00;	/* checksum */
 			if (port->write(port, buf, 3) != PORT_ERR_OK) {
 				fprintf(stderr, "Mass erase error.\n");
-				return 0;
+				return STM32_ERR_UNKNOWN;
 			}
 			ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
 			if (ret != STM32_ACK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
-				return 0;
+				return STM32_ERR_UNKNOWN;
 			}
-			return 1;
+			return STM32_ERR_OK;
 		}
 
 		uint16_t pg_num;
@@ -628,7 +650,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 		buf = malloc(2 + 2 * pages + 1);
 		if (!buf)
-			return 0;
+			return STM32_ERR_UNKNOWN;
  
 		/* Number of pages to be erased - 1, two bytes, MSB first */
 		pg_byte = (pages - 1) >> 8;
@@ -651,16 +673,16 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		free(buf);
 		if (ret != PORT_ERR_OK) {
 			fprintf(stderr, "Page-by-page erase error.\n");
-			return 0;
+			return STM32_ERR_UNKNOWN;
 		}
 
 		ret = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
 		if (ret != STM32_ACK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
-			return 0;
+			return STM32_ERR_UNKNOWN;
  		}
 
- 		return 1;
+		return STM32_ERR_OK;
 	}
 
 	/* And now the regular erase (0x43) for all other chips */
@@ -674,7 +696,7 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 		buf = malloc(1 + pages + 1);
 		if (!buf)
-			return 0;
+			return STM32_ERR_UNKNOWN;
 
 		buf[i++] = pages - 1;
 		cs ^= (pages-1);
@@ -687,14 +709,17 @@ char stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		free(buf);
 		if (ret != PORT_ERR_OK) {
 			fprintf(stderr, "Erase failed.\n");
-			return 0;
+			return STM32_ERR_UNKNOWN;
 		}
 		ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-		return ret == STM32_ACK;
+		if (ret != STM32_ACK)
+			return STM32_ERR_UNKNOWN;
+		return STM32_ERR_OK;
 	}
 }
 
-char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8_t *code, uint32_t code_size)
+stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
+			       const uint8_t *code, uint32_t code_size)
 {
 	uint32_t stack_le = le_u32(0x20002000);
 	uint32_t code_address_le = le_u32(target_address + 8);
@@ -705,7 +730,7 @@ char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8
 
 	uint8_t *mem = malloc(length);
 	if (!mem)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	
 	memcpy(mem, &stack_le, sizeof(uint32_t));
 	memcpy(mem + 4, &code_address_le, sizeof(uint32_t));
@@ -716,9 +741,9 @@ char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8
 	while(length > 0) {
 		
 		uint32_t w = length > 256 ? 256 : length;
-		if (!stm32_write_memory(stm, address, pos, w)) {
+		if (stm32_write_memory(stm, address, pos, w) != STM32_ERR_OK) {
 			free(mem);
-			return 0;
+			return STM32_ERR_UNKNOWN;
 		}
 		
 		address += w;
@@ -730,17 +755,18 @@ char stm32_run_raw_code(const stm32_t *stm, uint32_t target_address, const uint8
 	return stm32_go(stm, target_address);
 }
 
-char stm32_go(const stm32_t *stm, uint32_t address)
+stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 {
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
         if (stm->cmd->go == STM32_CMD_ERR) {
                 fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
-                return 0;
+		return STM32_ERR_UNKNOWN;
         }
 
-	if (!stm32_send_command(stm, stm->cmd->go)) return 0;
+	if (stm32_send_command(stm, stm->cmd->go) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
 	buf[1] = (address >> 16) & 0xFF;
@@ -748,30 +774,33 @@ char stm32_go(const stm32_t *stm, uint32_t address)
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
-	return stm32_get_ack(stm) == STM32_ACK;
+	if (stm32_get_ack(stm) != STM32_ACK)
+		return STM32_ERR_UNKNOWN;
+	return STM32_ERR_OK;
 }
 
-char stm32_reset_device(const stm32_t *stm) {
+stm32_err_t stm32_reset_device(const stm32_t *stm)
+{
 	uint32_t target_address = stm->dev->ram_start;
 	
 	return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
 }
 
-char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
-		      uint32_t *crc)
+stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
+			     uint32_t length, uint32_t *crc)
 {
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
 	if (stm->cmd->crc == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: CRC command not implemented in bootloader.\n");
-		return 0;
+		return STM32_ERR_UNKNOWN;
 	}
 
-	if (!stm32_send_command(stm, stm->cmd->crc))
-		return 0;
+	if (stm32_send_command(stm, stm->cmd->crc) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
 	buf[1] = (address >> 16) & 0xFF;
@@ -779,10 +808,10 @@ char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
 	buf[3] = address & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	if (stm32_get_ack(stm) != STM32_ACK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	buf[0] = length >> 24;
 	buf[1] = (length >> 16) & 0xFF;
@@ -790,22 +819,22 @@ char stm32_crc_memory(const stm32_t *stm, uint32_t address, uint32_t length,
 	buf[3] = length & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	if (stm32_get_ack(stm) != STM32_ACK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	if (stm32_get_ack(stm) != STM32_ACK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	if (port->read(port, buf, 5) != PORT_ERR_OK)
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	if (buf[4] != (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]))
-		return 0;
+		return STM32_ERR_UNKNOWN;
 
 	*crc = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-	return 1;
+	return STM32_ERR_OK;
 }
 
 #define CRCPOLY_BE	0x04c11db7
@@ -834,8 +863,8 @@ uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len)
 	return crc;
 }
 
-char stm32_crc_wrapper(const stm32_t *stm, uint32_t address, uint32_t length,
-		       uint32_t *crc)
+stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
+			      uint32_t length, uint32_t *crc)
 {
 	uint8_t buf[256];
 	uint32_t len, current_crc;
@@ -846,16 +875,16 @@ char stm32_crc_wrapper(const stm32_t *stm, uint32_t address, uint32_t length,
 	current_crc = CRC_INIT_VALUE;
 	while (length) {
 		len = length > 256 ? 256 : length;
-		if (!stm32_read_memory(stm, address, buf, len)) {
+		if (stm32_read_memory(stm, address, buf, len) != STM32_ERR_OK) {
 			fprintf(stderr,
 				"Failed to read memory at address 0x%08x, target write-protected?\n",
 				address);
-			return 0;
+			return STM32_ERR_UNKNOWN;
 		}
 		current_crc = stm32_sw_crc(current_crc, buf, len);
 		length -= len;
 		address += len;
 	}
 	*crc = current_crc;
-	return 1;
+	return STM32_ERR_OK;
 }
