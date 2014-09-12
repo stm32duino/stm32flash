@@ -100,7 +100,7 @@ static uint8_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	uint8_t byte;
-	int err;
+	port_err_t p_err;
 	time_t t0, t1;
 
 	if (!(port->flags & PORT_RETRY))
@@ -110,14 +110,14 @@ static uint8_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 		time(&t0);
 
 	do {
-		err = port->read(port, &byte, 1);
-		if (err == PORT_ERR_TIMEDOUT && timeout) {
+		p_err = port->read(port, &byte, 1);
+		if (p_err == PORT_ERR_TIMEDOUT && timeout) {
 			time(&t1);
 			if (t1 < t0 + timeout)
 				continue;
 		}
 
-		if (err != PORT_ERR_OK) {
+		if (p_err != PORT_ERR_OK) {
 			fprintf(stderr, "Failed to read ACK byte\n");
 			return STM32_ACK_ERROR;
 		}
@@ -137,12 +137,13 @@ stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 {
 	struct port_interface *port = stm->port;
 	int ret;
+	port_err_t p_err;
 	uint8_t buf[2];
 
 	buf[0] = cmd;
 	buf[1] = cmd ^ 0xFF;
-	ret = port->write(port, buf, 2);
-	if (ret != PORT_ERR_OK) {
+	p_err = port->write(port, buf, 2);
+	if (p_err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send command\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -166,7 +167,7 @@ stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 static stm32_err_t stm32_resync(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
-	int err;
+	port_err_t p_err;
 	uint8_t buf[2], ack;
 	time_t t0, t1;
 
@@ -176,14 +177,14 @@ static stm32_err_t stm32_resync(const stm32_t *stm)
 	buf[0] = STM32_CMD_ERR;
 	buf[1] = STM32_CMD_ERR ^ 0xFF;
 	while (t1 < t0 + STM32_RESYNC_TIMEOUT) {
-		err = port->write(port, buf, 2);
-		if (err != PORT_ERR_OK) {
+		p_err = port->write(port, buf, 2);
+		if (p_err != PORT_ERR_OK) {
 			usleep(500000);
 			time(&t1);
 			continue;
 		}
-		err = port->read(port, &ack, 1);
-		if (err != PORT_ERR_OK) {
+		p_err = port->read(port, &ack, 1);
+		if (p_err != PORT_ERR_OK) {
 			time(&t1);
 			continue;
 		}
@@ -210,33 +211,33 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 				       uint8_t *data, unsigned int len)
 {
 	struct port_interface *port = stm->port;
-	int err;
+	port_err_t p_err;
 
 	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	if (port->flags & PORT_BYTE) {
 		/* interface is UART-like */
-		err = port->read(port, data, 1);
-		if (err != PORT_ERR_OK)
+		p_err = port->read(port, data, 1);
+		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		len = data[0];
-		err = port->read(port, data + 1, len + 1);
-		if (err != PORT_ERR_OK)
+		p_err = port->read(port, data + 1, len + 1);
+		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		return STM32_ERR_OK;
 	}
 
-	err = port->read(port, data, len + 2);
-	if (err == PORT_ERR_OK && len == data[0])
+	p_err = port->read(port, data, len + 2);
+	if (p_err == PORT_ERR_OK && len == data[0])
 		return STM32_ERR_OK;
-	if (err != PORT_ERR_OK) {
+	if (p_err != PORT_ERR_OK) {
 		/* restart with only one byte */
 		if (stm32_resync(stm) != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
-		err = port->read(port, data, 1);
-		if (err != PORT_ERR_OK)
+		p_err = port->read(port, data, 1);
+		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 	}
 
@@ -247,8 +248,8 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	len = data[0];
 	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	err = port->read(port, data, len + 2);
-	if (err != PORT_ERR_OK)
+	p_err = port->read(port, data, len + 2);
+	if (p_err != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	return STM32_ERR_OK;
 }
@@ -268,24 +269,24 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
-	int ret;
+	port_err_t p_err;
 	uint8_t byte, cmd = STM32_CMD_INIT;
 
-	ret = port->write(port, &cmd, 1);
-	if (ret != PORT_ERR_OK) {
+	p_err = port->write(port, &cmd, 1);
+	if (p_err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send init to device\n");
 		return STM32_ERR_UNKNOWN;
 	}
-	ret = port->read(port, &byte, 1);
-	if (ret == PORT_ERR_OK && byte == STM32_ACK)
+	p_err = port->read(port, &byte, 1);
+	if (p_err == PORT_ERR_OK && byte == STM32_ACK)
 		return STM32_ERR_OK;
-	if (ret == PORT_ERR_OK && byte == STM32_NACK) {
+	if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
 		/* We could get error later, but let's continue, for now. */
 		fprintf(stderr,
 			"Warning: the interface was not closed properly.\n");
 		return STM32_ERR_OK;
 	}
-	if (ret != PORT_ERR_TIMEDOUT) {
+	if (p_err != PORT_ERR_TIMEDOUT) {
 		fprintf(stderr, "Failed to init device.\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -294,13 +295,13 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	 * Check if previous STM32_CMD_INIT was taken as first byte
 	 * of a command. Send a new byte, we should get back a NACK.
 	 */
-	ret = port->write(port, &cmd, 1);
-	if (ret != PORT_ERR_OK) {
+	p_err = port->write(port, &cmd, 1);
+	if (p_err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send init to device\n");
 		return STM32_ERR_UNKNOWN;
 	}
-	ret = port->read(port, &byte, 1);
-	if (ret == PORT_ERR_OK && byte == STM32_NACK)
+	p_err = port->read(port, &byte, 1);
+	if (p_err == PORT_ERR_OK && byte == STM32_NACK)
 		return STM32_ERR_OK;
 	fprintf(stderr, "Failed to init device.\n");
 	return STM32_ERR_UNKNOWN;
@@ -599,6 +600,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 {
 	struct port_interface *port = stm->port;
 	int ret;
+	port_err_t p_err;
 
 	if (!pages)
 		return STM32_ERR_OK;
@@ -669,9 +671,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			buf[i++] = pg_byte;
  		}
 		buf[i++] = cs;
-		ret = port->write(port, buf, i);
+		p_err = port->write(port, buf, i);
 		free(buf);
-		if (ret != PORT_ERR_OK) {
+		if (p_err != PORT_ERR_OK) {
 			fprintf(stderr, "Page-by-page erase error.\n");
 			return STM32_ERR_UNKNOWN;
 		}
@@ -705,9 +707,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			cs ^= pg_num;
 		}
 		buf[i++] = cs;
-		ret = port->write(port, buf, i);
+		p_err = port->write(port, buf, i);
 		free(buf);
-		if (ret != PORT_ERR_OK) {
+		if (p_err != PORT_ERR_OK) {
 			fprintf(stderr, "Erase failed.\n");
 			return STM32_ERR_UNKNOWN;
 		}
