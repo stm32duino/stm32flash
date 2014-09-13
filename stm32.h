@@ -25,8 +25,8 @@
 #include "serial.h"
 
 typedef enum {
-	STM32_ERR_UNKNOWN = 0,	/* Generic error */
-	STM32_ERR_OK,
+	STM32_ERR_OK = 0,
+	STM32_ERR_UNKNOWN,	/* Generic error */
 	STM32_ERR_NACK,
 } stm32_err_t;
 
