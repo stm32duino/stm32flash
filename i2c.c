@@ -31,7 +31,7 @@
 #include "port.h"
 
 
-#if defined(__WIN32__) || defined(__CYGWIN__)
+#if defined(__WIN32__) || defined(__CYGWIN__) || defined(__APPLE__)
 
 static port_err_t i2c_open(struct port_interface *port,
 			   struct port_options *ops)
