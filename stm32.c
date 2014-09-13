@@ -625,10 +625,10 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
 	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
 	if (stm->cmd->er != STM32_CMD_ER) {
- 		/* Not all chips using Extended Erase support mass erase */
- 		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
- 		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
- 		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
+		/* Not all chips using Extended Erase support mass erase */
+		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
+		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
+		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
 		if (stm->pid == 0x416 && pages == 0xFF) pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
 
 		if (pages == 0xFF) {
@@ -652,14 +652,14 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 		uint16_t pg_num;
 		uint8_t pg_byte;
- 		uint8_t cs = 0;
+		uint8_t cs = 0;
 		uint8_t *buf;
 		int i = 0;
 
 		buf = malloc(2 + 2 * pages + 1);
 		if (!buf)
 			return STM32_ERR_UNKNOWN;
- 
+
 		/* Number of pages to be erased - 1, two bytes, MSB first */
 		pg_byte = (pages - 1) >> 8;
 		buf[i++] = pg_byte;
@@ -667,15 +667,15 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		pg_byte = (pages - 1) & 0xFF;
 		buf[i++] = pg_byte;
 		cs ^= pg_byte;
- 
+
 		for (pg_num = spage; pg_num < spage + pages; pg_num++) {
- 			pg_byte = pg_num >> 8;
- 			cs ^= pg_byte;
+			pg_byte = pg_num >> 8;
+			cs ^= pg_byte;
 			buf[i++] = pg_byte;
- 			pg_byte = pg_num & 0xFF;
- 			cs ^= pg_byte;
+			pg_byte = pg_num & 0xFF;
+			cs ^= pg_byte;
 			buf[i++] = pg_byte;
- 		}
+		}
 		buf[i++] = cs;
 		p_err = port->write(port, buf, i);
 		free(buf);
@@ -686,9 +686,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 		s_err = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
 		if (s_err != STM32_ERR_OK) {
- 			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
+			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 			return STM32_ERR_UNKNOWN;
- 		}
+		}
 
 		return STM32_ERR_OK;
 	}
@@ -732,33 +732,33 @@ stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
 	uint32_t stack_le = le_u32(0x20002000);
 	uint32_t code_address_le = le_u32(target_address + 8);
 	uint32_t length = code_size + 8;
-	
+
 	/* Must be 32-bit aligned */
 	assert(target_address % 4 == 0);
 
 	uint8_t *mem = malloc(length);
 	if (!mem)
 		return STM32_ERR_UNKNOWN;
-	
+
 	memcpy(mem, &stack_le, sizeof(uint32_t));
 	memcpy(mem + 4, &code_address_le, sizeof(uint32_t));
 	memcpy(mem + 8, code, code_size);
-	
+
 	uint8_t *pos = mem;
 	uint32_t address = target_address;
 	while(length > 0) {
-		
+
 		uint32_t w = length > 256 ? 256 : length;
 		if (stm32_write_memory(stm, address, pos, w) != STM32_ERR_OK) {
 			free(mem);
 			return STM32_ERR_UNKNOWN;
 		}
-		
+
 		address += w;
 		pos += w;
 		length -=w;
 	}
-	
+
 	free(mem);
 	return stm32_go(stm, target_address);
 }
@@ -768,10 +768,10 @@ stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
-        if (stm->cmd->go == STM32_CMD_ERR) {
-                fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
+	if (stm->cmd->go == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
 		return STM32_ERR_UNKNOWN;
-        }
+	}
 
 	if (stm32_send_command(stm, stm->cmd->go) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
@@ -792,7 +792,7 @@ stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 stm32_err_t stm32_reset_device(const stm32_t *stm)
 {
 	uint32_t target_address = stm->dev->ram_start;
-	
+
 	return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
 }
 
