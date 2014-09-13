@@ -27,6 +27,7 @@
 typedef enum {
 	STM32_ERR_UNKNOWN = 0,	/* Generic error */
 	STM32_ERR_OK,
+	STM32_ERR_NACK,
 } stm32_err_t;
 
 typedef struct stm32		stm32_t;

@@ -33,7 +33,6 @@
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
 #define STM32_BUSY	0x76
-#define STM32_ACK_ERROR	0x00
 
 #define STM32_CMD_INIT	0x7F
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
@@ -96,7 +95,7 @@ static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 extern const stm32_dev_t devices[];
 
-static uint8_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
+static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	uint8_t byte;
@@ -119,15 +118,22 @@ static uint8_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 		if (p_err != PORT_ERR_OK) {
 			fprintf(stderr, "Failed to read ACK byte\n");
-			return STM32_ACK_ERROR;
+			return STM32_ERR_UNKNOWN;
 		}
 
-		if (byte != STM32_BUSY)
-			return byte;
+		if (byte == STM32_ACK)
+			return STM32_ERR_OK;
+		if (byte == STM32_NACK)
+			return STM32_ERR_NACK;
+		if (byte != STM32_BUSY) {
+			fprintf(stderr, "Got byte 0x%02x instead of ACK\n",
+				byte);
+			return STM32_ERR_UNKNOWN;
+		}
 	} while (1);
 }
 
-static uint8_t stm32_get_ack(const stm32_t *stm)
+static stm32_err_t stm32_get_ack(const stm32_t *stm)
 {
 	return stm32_get_ack_timeout(stm, 0);
 }
@@ -136,7 +142,7 @@ stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 				       time_t timeout)
 {
 	struct port_interface *port = stm->port;
-	int ret;
+	stm32_err_t s_err;
 	port_err_t p_err;
 	uint8_t buf[2];
 
@@ -147,10 +153,10 @@ stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 		fprintf(stderr, "Failed to send command\n");
 		return STM32_ERR_UNKNOWN;
 	}
-	ret = stm32_get_ack_timeout(stm, timeout);
-	if (ret == STM32_ACK) {
+	s_err = stm32_get_ack_timeout(stm, timeout);
+	if (s_err == STM32_ERR_OK) {
 		return STM32_ERR_OK;
-	} else if (ret == STM32_NACK) {
+	} else if (s_err == STM32_ERR_NACK) {
 		fprintf(stderr, "Got NACK from device on command 0x%02x\n", cmd);
 	} else {
 		fprintf(stderr, "Unexpected reply from device on command 0x%02x\n", cmd);
@@ -340,7 +346,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	stm->version = buf[0];
 	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
 	stm->option2 = (port->flags & PORT_GVR_ETX) ? buf[2] : 0;
-	if (stm32_get_ack(stm) != STM32_ACK) {
+	if (stm32_get_ack(stm) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -410,7 +416,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	}
 	if (new_cmds)
 		fprintf(stderr, ")\n");
-	if (stm32_get_ack(stm) != STM32_ACK) {
+	if (stm32_get_ack(stm) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -441,7 +447,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 			fprintf(stderr, " %02x", buf[i]);
 		fprintf(stderr, "\n");
 	}
-	if (stm32_get_ack(stm) != STM32_ACK) {
+	if (stm32_get_ack(stm) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
@@ -489,7 +495,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	if (stm32_send_command(stm, len - 1) != STM32_ERR_OK)
@@ -507,7 +513,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	struct port_interface *port = stm->port;
 	uint8_t cs, buf[256 + 2];
 	unsigned int i, aligned_len;
-	int ret;
+	stm32_err_t s_err;
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -529,7 +535,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	aligned_len = (len + 3) & ~3;
@@ -548,8 +554,8 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	if (port->write(port, buf, aligned_len + 2) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	ret = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
-	if (ret != STM32_ACK)
+	s_err = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
+	if (s_err != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	return STM32_ERR_OK;
 }
@@ -599,7 +605,7 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 {
 	struct port_interface *port = stm->port;
-	int ret;
+	stm32_err_t s_err;
 	port_err_t p_err;
 
 	if (!pages)
@@ -636,8 +642,8 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 				fprintf(stderr, "Mass erase error.\n");
 				return STM32_ERR_UNKNOWN;
 			}
-			ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-			if (ret != STM32_ACK) {
+			s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
 				return STM32_ERR_UNKNOWN;
 			}
@@ -678,8 +684,8 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			return STM32_ERR_UNKNOWN;
 		}
 
-		ret = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
-		if (ret != STM32_ACK) {
+		s_err = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
+		if (s_err != STM32_ERR_OK) {
  			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 			return STM32_ERR_UNKNOWN;
  		}
@@ -713,8 +719,8 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			fprintf(stderr, "Erase failed.\n");
 			return STM32_ERR_UNKNOWN;
 		}
-		ret = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-		if (ret != STM32_ACK)
+		s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+		if (s_err != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		return STM32_ERR_OK;
 	}
@@ -778,7 +784,7 @@ stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	return STM32_ERR_OK;
 }
@@ -812,7 +818,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	buf[0] = length >> 24;
@@ -823,10 +829,10 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (stm32_get_ack(stm) != STM32_ACK)
+	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	if (port->read(port, buf, 5) != PORT_ERR_OK)
