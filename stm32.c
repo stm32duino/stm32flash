@@ -138,8 +138,9 @@ static stm32_err_t stm32_get_ack(const stm32_t *stm)
 	return stm32_get_ack_timeout(stm, 0);
 }
 
-stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
-				       time_t timeout)
+static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
+					      const uint8_t cmd,
+					      time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	stm32_err_t s_err;
@@ -163,7 +164,7 @@ stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 	return STM32_ERR_UNKNOWN;
 }
 
-stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
+static stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 {
 	return stm32_send_command_timeout(stm, cmd, 0);
 }
@@ -729,8 +730,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 	}
 }
 
-stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
-			       const uint8_t *code, uint32_t code_size)
+static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
+				      uint32_t target_address,
+				      const uint8_t *code, uint32_t code_size)
 {
 	uint32_t stack_le = le_u32(0x20002000);
 	uint32_t code_address_le = le_u32(target_address + 8);
