@@ -202,9 +202,9 @@ static stm32_err_t stm32_resync(const stm32_t *stm)
 }
 
 /*
- * some command receive reply frame with variable lenght, and lenght is
+ * some command receive reply frame with variable length, and length is
  * embedded in reply frame itself.
- * We can guess the lenght, but if we guess wrong the protocol gets out
+ * We can guess the length, but if we guess wrong the protocol gets out
  * of sync.
  * Use resync for frame oriented interfaces (e.g. I2C) and byte-by-byte
  * read for byte oriented interfaces (e.g. UART).
