@@ -154,13 +154,12 @@ stm32_err_t stm32_send_command_timeout(const stm32_t *stm, const uint8_t cmd,
 		return STM32_ERR_UNKNOWN;
 	}
 	s_err = stm32_get_ack_timeout(stm, timeout);
-	if (s_err == STM32_ERR_OK) {
+	if (s_err == STM32_ERR_OK)
 		return STM32_ERR_OK;
-	} else if (s_err == STM32_ERR_NACK) {
+	if (s_err == STM32_ERR_NACK)
 		fprintf(stderr, "Got NACK from device on command 0x%02x\n", cmd);
-	} else {
+	else
 		fprintf(stderr, "Unexpected reply from device on command 0x%02x\n", cmd);
-	}
 	return STM32_ERR_UNKNOWN;
 }
 
@@ -424,8 +423,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	if (stm->cmd->get == STM32_CMD_ERR
 	    || stm->cmd->gvr == STM32_CMD_ERR
 	    || stm->cmd->gid == STM32_CMD_ERR) {
-		fprintf(stderr, "Error: bootloader did not returned correct "
-			"information from GET command\n");
+		fprintf(stderr, "Error: bootloader did not returned correct information from GET command\n");
 		return NULL;
 	}
 
@@ -453,7 +451,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	}
 
 	stm->dev = devices;
-	while(stm->dev->id != 0x00 && stm->dev->id != stm->pid)
+	while (stm->dev->id != 0x00 && stm->dev->id != stm->pid)
 		++stm->dev;
 
 	if (!stm->dev->id) {
@@ -465,8 +463,10 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	return stm;
 }
 
-void stm32_close(stm32_t *stm) {
-	if (stm) free(stm->cmd);
+void stm32_close(stm32_t *stm)
+{
+	if (stm)
+		free(stm->cmd);
 	free(stm);
 }
 
@@ -475,6 +475,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 {
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
+
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -514,6 +515,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	uint8_t cs, buf[256 + 2];
 	unsigned int i, aligned_len;
 	stm32_err_t s_err;
+
 	assert(len > 0 && len < 257);
 
 	/* must be 32bit aligned */
@@ -629,7 +631,8 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
 		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
 		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
-		if (stm->pid == 0x416 && pages == 0xFF) pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
+		if (stm->pid == 0x416 && pages == 0xFF)
+			pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
 
 		if (pages == 0xFF) {
 			uint8_t buf[3];
@@ -732,11 +735,13 @@ stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
 	uint32_t stack_le = le_u32(0x20002000);
 	uint32_t code_address_le = le_u32(target_address + 8);
 	uint32_t length = code_size + 8;
+	uint8_t *mem, *pos;
+	uint32_t address, w;
 
 	/* Must be 32-bit aligned */
 	assert(target_address % 4 == 0);
 
-	uint8_t *mem = malloc(length);
+	mem = malloc(length);
 	if (!mem)
 		return STM32_ERR_UNKNOWN;
 
@@ -744,11 +749,10 @@ stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
 	memcpy(mem + 4, &code_address_le, sizeof(uint32_t));
 	memcpy(mem + 8, code, code_size);
 
-	uint8_t *pos = mem;
-	uint32_t address = target_address;
-	while(length > 0) {
-
-		uint32_t w = length > 256 ? 256 : length;
+	pos = mem;
+	address = target_address;
+	while (length > 0) {
+		w = length > 256 ? 256 : length;
 		if (stm32_write_memory(stm, address, pos, w) != STM32_ERR_OK) {
 			free(mem);
 			return STM32_ERR_UNKNOWN;
@@ -756,7 +760,7 @@ stm32_err_t stm32_run_raw_code(const stm32_t *stm, uint32_t target_address,
 
 		address += w;
 		pos += w;
-		length -=w;
+		length -= w;
 	}
 
 	free(mem);
