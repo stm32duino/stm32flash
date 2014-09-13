@@ -802,6 +802,11 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
+	if (address & 0x3 || length & 0x3) {
+		fprintf(stderr, "Start and end addresses must be 4 byte aligned\n");
+		return STM32_ERR_UNKNOWN;
+	}
+
 	if (stm->cmd->crc == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: CRC command not implemented in bootloader.\n");
 		return STM32_ERR_UNKNOWN;
@@ -845,6 +850,14 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	return STM32_ERR_OK;
 }
 
+/*
+ * CRC computed by STM32 is similar to the standard crc32_be()
+ * implemented, for example, in Linux kernel in ./lib/crc32.c
+ * But STM32 computes it on units of 32 bits word and swaps the
+ * bytes of the word before the computation.
+ * Due to byte swap, I cannot use any CRC available in existing
+ * libraries, so here is a simple not optimized implementation.
+ */
 #define CRCPOLY_BE	0x04c11db7
 #define CRC_MSBMASK	0x80000000
 #define CRC_INIT_VALUE	0xFFFFFFFF
@@ -853,11 +866,16 @@ uint32_t stm32_sw_crc(uint32_t crc, uint8_t *buf, unsigned int len)
 	int i;
 	uint32_t data;
 
+	if (len & 0x3) {
+		fprintf(stderr, "Buffer length must be multiple of 4 bytes\n");
+		return 0;
+	}
+
 	while (len) {
 		data = *buf++;
-		data |= ((len > 1) ? *buf++ : 0xff) << 8;
-		data |= ((len > 2) ? *buf++ : 0xff) << 16;
-		data |= ((len > 3) ? *buf++ : 0xff) << 24;
+		data |= *buf++ << 8;
+		data |= *buf++ << 16;
+		data |= *buf++ << 24;
 		len -= 4;
 
 		crc ^= data;
@@ -876,6 +894,11 @@ stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
 {
 	uint8_t buf[256];
 	uint32_t len, current_crc;
+
+	if (address & 0x3 || length & 0x3) {
+		fprintf(stderr, "Start and end addresses must be 4 byte aligned\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	if (stm->cmd->crc != STM32_CMD_ERR)
 		return stm32_crc_memory(stm, address, length, crc);
