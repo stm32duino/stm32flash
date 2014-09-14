@@ -899,7 +899,7 @@ stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
 			      uint32_t length, uint32_t *crc)
 {
 	uint8_t buf[256];
-	uint32_t len, current_crc;
+	uint32_t start, total_len, len, current_crc;
 
 	if (address & 0x3 || length & 0x3) {
 		fprintf(stderr, "Start and end addresses must be 4 byte aligned\n");
@@ -909,6 +909,8 @@ stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
 	if (stm->cmd->crc != STM32_CMD_ERR)
 		return stm32_crc_memory(stm, address, length, crc);
 
+	start = address;
+	total_len = length;
 	current_crc = CRC_INIT_VALUE;
 	while (length) {
 		len = length > 256 ? 256 : length;
@@ -921,7 +923,15 @@ stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
 		current_crc = stm32_sw_crc(current_crc, buf, len);
 		length -= len;
 		address += len;
+
+		fprintf(stderr,
+			"\rCRC address 0x%08x (%.2f%%) ",
+			address,
+			(100.0f / (float)total_len) * (float)(address - start)
+		);
+		fflush(stderr);
 	}
+	fprintf(stderr, "Done.\n");
 	*crc = current_crc;
 	return STM32_ERR_OK;
 }
