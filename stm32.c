@@ -19,7 +19,6 @@
 */
 
 #include <stdlib.h>
-#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -477,10 +476,19 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
-	assert(len > 0 && len < 257);
+	if (!len)
+		return STM32_ERR_OK;
+
+	if (len > 256) {
+		fprintf(stderr, "Error: READ length limit at 256 bytes\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	/* must be 32bit aligned */
-	assert(address % 4 == 0);
+	if (address & 0x3) {
+		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	if (stm->cmd->rm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
@@ -517,10 +525,19 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	unsigned int i, aligned_len;
 	stm32_err_t s_err;
 
-	assert(len > 0 && len < 257);
+	if (!len)
+		return STM32_ERR_OK;
+
+	if (len > 256) {
+		fprintf(stderr, "Error: READ length limit at 256 bytes\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	/* must be 32bit aligned */
-	assert(address % 4 == 0);
+	if (address & 0x3) {
+		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	if (stm->cmd->wm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE command not implemented in bootloader.\n");
@@ -741,7 +758,10 @@ static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
 	uint32_t address, w;
 
 	/* Must be 32-bit aligned */
-	assert(target_address % 4 == 0);
+	if (target_address & 0x3) {
+		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
+		return STM32_ERR_UNKNOWN;
+	}
 
 	mem = malloc(length);
 	if (!mem)
