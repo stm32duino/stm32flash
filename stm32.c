@@ -484,7 +484,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 
 	if (stm->cmd->rm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->rm) != STM32_ERR_OK)
@@ -524,7 +524,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 
 	if (stm->cmd->wm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	/* send the address and checksum */
@@ -567,7 +567,7 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 {
 	if (stm->cmd->uw == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE UNPROTECT command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->uw) != STM32_ERR_OK)
@@ -581,7 +581,7 @@ stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 {
 	if (stm->cmd->ur == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ UNPROTECT command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->ur) != STM32_ERR_OK)
@@ -595,7 +595,7 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 {
 	if (stm->cmd->rp == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ PROTECT command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->rp) != STM32_ERR_OK)
@@ -616,7 +616,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 	if (stm->cmd->er == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: ERASE command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
@@ -776,7 +776,7 @@ stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 
 	if (stm->cmd->go == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: GO command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->go) != STM32_ERR_OK)
@@ -815,7 +815,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 
 	if (stm->cmd->crc == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: CRC command not implemented in bootloader.\n");
-		return STM32_ERR_UNKNOWN;
+		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->crc) != STM32_ERR_OK)

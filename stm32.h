@@ -28,6 +28,7 @@ typedef enum {
 	STM32_ERR_OK = 0,
 	STM32_ERR_UNKNOWN,	/* Generic error */
 	STM32_ERR_NACK,
+	STM32_ERR_NO_CMD,	/* Command not available in bootloader */
 } stm32_err_t;
 
 typedef struct stm32		stm32_t;
