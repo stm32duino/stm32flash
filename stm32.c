@@ -94,6 +94,15 @@ static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 extern const stm32_dev_t devices[];
 
+static void stm32_warn_stretching(const char *f)
+{
+	fprintf(stderr, "Attention !!!\n");
+	fprintf(stderr, "\tThis %s error could be caused by your I2C\n", f);
+	fprintf(stderr, "\tcontroller not accepting \"clock stretching\"\n");
+	fprintf(stderr, "\tas required by bootloader.\n");
+	fprintf(stderr, "\tCheck \"I2C.txt\" in stm32flash source code.\n");
+}
+
 static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 {
 	struct port_interface *port = stm->port;
@@ -575,8 +584,12 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
-	if (s_err != STM32_ERR_OK)
+	if (s_err != STM32_ERR_OK) {
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->wm != STM32_CMD_WM_NS)
+			stm32_warn_stretching("write");
 		return STM32_ERR_UNKNOWN;
+	}
 	return STM32_ERR_OK;
 }
 
@@ -666,6 +679,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
 			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
+				if (port->flags & PORT_STRETCH_W
+				    && stm->cmd->er != STM32_CMD_EE_NS)
+					stm32_warn_stretching("erase");
 				return STM32_ERR_UNKNOWN;
 			}
 			return STM32_ERR_OK;
@@ -708,6 +724,9 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		s_err = stm32_get_ack_timeout(stm, STM32_SECTERASE_TIMEOUT);
 		if (s_err != STM32_ERR_OK) {
 			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
+			if (port->flags & PORT_STRETCH_W
+			    && stm->cmd->er != STM32_CMD_EE_NS)
+				stm32_warn_stretching("erase");
 			return STM32_ERR_UNKNOWN;
 		}
 
@@ -716,7 +735,13 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 
 	/* And now the regular erase (0x43) for all other chips */
 	if (pages == 0xFF) {
-		return stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
+		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
+		if (s_err != STM32_ERR_OK) {
+			if (port->flags & PORT_STRETCH_W)
+				stm32_warn_stretching("erase");
+			return STM32_ERR_UNKNOWN;
+		}
+		return STM32_ERR_OK;
 	} else {
 		uint8_t cs = 0;
 		uint8_t pg_num;
@@ -741,8 +766,11 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			return STM32_ERR_UNKNOWN;
 		}
 		s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-		if (s_err != STM32_ERR_OK)
+		if (s_err != STM32_ERR_OK) {
+			if (port->flags & PORT_STRETCH_W)
+				stm32_warn_stretching("erase");
 			return STM32_ERR_UNKNOWN;
+		}
 		return STM32_ERR_OK;
 	}
 }

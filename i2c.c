@@ -176,7 +176,7 @@ static struct varlen_cmd i2c_cmd_get_reply[] = {
 
 struct port_interface port_i2c = {
 	.name	= "i2c",
-	.flags	= 0,
+	.flags	= PORT_STRETCH_W,
 	.open	= i2c_open,
 	.close	= i2c_close,
 	.read	= i2c_read,
