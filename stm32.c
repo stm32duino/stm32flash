@@ -60,6 +60,7 @@
 #define STM32_SECTERASE_TIMEOUT	5	/* seconds */
 #define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
+#define STM32_RPROT_TIMEOUT	1	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
 
@@ -650,15 +651,28 @@ stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 
 stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 {
+	struct port_interface *port = stm->port;
+	stm32_err_t s_err;
+
 	if (stm->cmd->rp == STM32_CMD_ERR) {
-		fprintf(stderr, "Error: READ PROTECT command not implemented in bootloader.\n");
+		fprintf(stderr, "Error: READOUT PROTECT command not implemented in bootloader.\n");
 		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->rp) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	if (stm32_send_command(stm, 0x7D) != STM32_ERR_OK)
+
+	s_err = stm32_get_ack_timeout(stm, STM32_RPROT_TIMEOUT);
+	if (s_err == STM32_NACK) {
+		fprintf(stderr, "Error: Failed to READOUT PROTECT\n");
 		return STM32_ERR_UNKNOWN;
+	}
+	if (s_err != STM32_ERR_OK) {
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->rp != STM32_CMD_RP_NS)
+			stm32_warn_stretching("READOUT PROTECT");
+		return STM32_ERR_UNKNOWN;
+	}
 	return STM32_ERR_OK;
 }
 
