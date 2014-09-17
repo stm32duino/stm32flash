@@ -59,6 +59,7 @@
 #define STM32_MASSERASE_TIMEOUT	10	/* seconds */
 #define STM32_SECTERASE_TIMEOUT	5	/* seconds */
 #define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
+#define STM32_WUNPROT_TIMEOUT	1	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
 
@@ -595,6 +596,9 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 
 stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 {
+	struct port_interface *port = stm->port;
+	stm32_err_t s_err;
+
 	if (stm->cmd->uw == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: WRITE UNPROTECT command not implemented in bootloader.\n");
 		return STM32_ERR_NO_CMD;
@@ -602,8 +606,18 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 
 	if (stm32_send_command(stm, stm->cmd->uw) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	if (stm32_send_command(stm, 0x8C) != STM32_ERR_OK)
+
+	s_err = stm32_get_ack_timeout(stm, STM32_WUNPROT_TIMEOUT);
+	if (s_err == STM32_NACK) {
+		fprintf(stderr, "Error: Failed to WRITE UNPROTECT\n");
 		return STM32_ERR_UNKNOWN;
+	}
+	if (s_err != STM32_ERR_OK) {
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->uw != STM32_CMD_UW_NS)
+			stm32_warn_stretching("WRITE UNPROTECT");
+		return STM32_ERR_UNKNOWN;
+	}
 	return STM32_ERR_OK;
 }
 
