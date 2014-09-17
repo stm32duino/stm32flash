@@ -49,7 +49,11 @@ struct port_interface port_i2c = {
 
 #ifdef __ANDROID__
 #define I2C_SLAVE 0x0703 /* Use this slave address */
+#define I2C_FUNCS 0x0705 /* Get the adapter functionality mask */
+/* To determine what functionality is present */
+#define I2C_FUNC_I2C 0x00000001
 #else
+#include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #endif
 
@@ -65,6 +69,7 @@ static port_err_t i2c_open(struct port_interface *port,
 {
 	struct i2c_priv *h;
 	int fd, addr, ret;
+	unsigned long funcs;
 
 	/* 1. check device name match */
 	if (strncmp(ops->device, "/dev/i2c-", strlen("/dev/i2c-")))
@@ -91,10 +96,25 @@ static port_err_t i2c_open(struct port_interface *port,
 		return PORT_ERR_UNKNOWN;
 	}
 
+	/* 3.5. Check capabilities */
+	ret = ioctl(fd, I2C_FUNCS, &funcs);
+	if (ret < 0) {
+		fprintf(stderr, "I2C ioctl(funcs) error %d\n", errno);
+		close(fd);
+		free(h);
+		return PORT_ERR_UNKNOWN;
+	}
+	if ((funcs & I2C_FUNC_I2C) == 0) {
+		fprintf(stderr, "Error: controller is not I2C, only SMBUS.\n");
+		close(fd);
+		free(h);
+		return PORT_ERR_UNKNOWN;
+	}
+
 	/* 4. set options */
 	ret = ioctl(fd, I2C_SLAVE, addr);
 	if (ret < 0) {
-		fprintf(stderr, "I2C ioctl error %d\n", errno);
+		fprintf(stderr, "I2C ioctl(slave) error %d\n", errno);
 		close(fd);
 		free(h);
 		return PORT_ERR_UNKNOWN;
