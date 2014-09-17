@@ -623,15 +623,28 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 
 stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 {
+	struct port_interface *port = stm->port;
+	stm32_err_t s_err;
+
 	if (stm->cmd->ur == STM32_CMD_ERR) {
-		fprintf(stderr, "Error: READ UNPROTECT command not implemented in bootloader.\n");
+		fprintf(stderr, "Error: READOUT UNPROTECT command not implemented in bootloader.\n");
 		return STM32_ERR_NO_CMD;
 	}
 
 	if (stm32_send_command(stm, stm->cmd->ur) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	if (stm32_send_command(stm, 0x6D) != STM32_ERR_OK)
+
+	s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+	if (s_err == STM32_NACK) {
+		fprintf(stderr, "Error: Failed to READOUT UNPROTECT\n");
 		return STM32_ERR_UNKNOWN;
+	}
+	if (s_err != STM32_ERR_OK) {
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->ur != STM32_CMD_UR_NS)
+			stm32_warn_stretching("READOUT UNPROTECT");
+		return STM32_ERR_UNKNOWN;
+	}
 	return STM32_ERR_OK;
 }
 
