@@ -60,6 +60,7 @@
 #define STM32_SECTERASE_TIMEOUT	5	/* seconds */
 #define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
+#define STM32_WPROT_TIMEOUT	1	/* seconds */
 #define STM32_RPROT_TIMEOUT	1	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
@@ -617,6 +618,33 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 		if (port->flags & PORT_STRETCH_W
 		    && stm->cmd->uw != STM32_CMD_UW_NS)
 			stm32_warn_stretching("WRITE UNPROTECT");
+		return STM32_ERR_UNKNOWN;
+	}
+	return STM32_ERR_OK;
+}
+
+stm32_err_t stm32_wprot_memory(const stm32_t *stm)
+{
+	struct port_interface *port = stm->port;
+	stm32_err_t s_err;
+
+	if (stm->cmd->wp == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: WRITE PROTECT command not implemented in bootloader.\n");
+		return STM32_ERR_NO_CMD;
+	}
+
+	if (stm32_send_command(stm, stm->cmd->wp) != STM32_ERR_OK)
+		return STM32_ERR_UNKNOWN;
+
+	s_err = stm32_get_ack_timeout(stm, STM32_WPROT_TIMEOUT);
+	if (s_err == STM32_NACK) {
+		fprintf(stderr, "Error: Failed to WRITE PROTECT\n");
+		return STM32_ERR_UNKNOWN;
+	}
+	if (s_err != STM32_ERR_OK) {
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->wp != STM32_CMD_WP_NS)
+			stm32_warn_stretching("WRITE PROTECT");
 		return STM32_ERR_UNKNOWN;
 	}
 	return STM32_ERR_OK;

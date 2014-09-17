@@ -64,6 +64,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 			       const uint8_t data[], unsigned int len);
 stm32_err_t stm32_wunprot_memory(const stm32_t *stm);
+stm32_err_t stm32_wprot_memory(const stm32_t *stm);
 stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage,
 			       uint8_t pages);
 stm32_err_t stm32_go(const stm32_t *stm, uint32_t address);
