@@ -7,9 +7,11 @@ stm32flash adds support for I2C port to talk with STM32 bootloader.
 The current I2C back-end supports only the API provided by Linux kernel
 driver "i2c-dev", so only I2C controllers with Linux kernel driver can be
 used.
-Check in Linux source code
+In Linux source code, most of the drivers for I2C and SMBUS controllers
+are in
 	./drivers/i2c/busses/
-for the list of drivers for supported I2C controllers.
+Only I2C is supported by STM32 bootloader, so check the section below
+about SMBUS.
 No I2C support for Windows is available in stm32flash v0.4.
 
 Thanks to the new modular back-end, stm32flash can be easily extended to
@@ -27,6 +29,28 @@ There are currently 3 versions of STM32 bootloader for I2C communications:
 - v1.2 superset of v1.1, adds CRC command and compatibility with i2cdetect.
 Details in ST application note AN2606.
 All the bootloaders above are tested and working with stm32flash.
+
+
+SMBUS controllers
+==========================================================================
+
+Almost 50% of the drivers in Linux source code folder
+	./drivers/i2c/busses/
+are for controllers that "only" support SMBUS protocol. They can NOT
+operate with STM32 bootloader.
+To identify if your controller supports I2C, use command:
+	i2cdetect -F n
+where "n" is the number of the I2C interface (e.g. n=3 for "/dev/i2c-3").
+Controllers that supports I2C will report
+	I2C yes
+Controller that support both I2C and SMBUS are ok.
+
+If you are interested on details about SMBUS protocol, you can download
+the current specs from
+	http://smbus.org/specs/smbus20.pdf
+and you can read the files in Linux source code
+	./Documentation/i2c/i2c-protocol
+	./Documentation/i2c/smbus-protocol
 
 
 About bootloader v1.0
