@@ -261,6 +261,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (rd) {
+		unsigned int max_len = port_opts.rx_frame_max;
+
 		fprintf(diag, "Memory read\n");
 
 		perr = parser->open(p_st, filename, 1);
@@ -275,7 +277,7 @@ int main(int argc, char* argv[]) {
 		addr = start;
 		while(addr < end) {
 			uint32_t left	= end - addr;
-			len		= sizeof(buffer) > left ? left : sizeof(buffer);
+			len		= max_len > left ? left : max_len;
 			s_err = stm32_read_memory(stm, addr, buffer, len);
 			if (s_err != STM32_ERR_OK) {
 				fprintf(stderr, "Failed to read memory at address 0x%08x, target write-protected?\n", addr);
@@ -341,6 +343,13 @@ int main(int argc, char* argv[]) {
 		off_t 	offset = 0;
 		ssize_t r;
 		unsigned int size;
+		unsigned int max_wlen, max_rlen;
+
+		max_wlen = port_opts.tx_frame_max - 2;	/* skip len and crc */
+		max_wlen &= ~3;	/* 32 bit aligned */
+
+		max_rlen = port_opts.rx_frame_max;
+		max_rlen = max_rlen < max_wlen ? max_rlen : max_wlen;
 
 		/* Assume data from stdin is whole device */
 		if (filename[0] == '-' && filename[1] == '\0')
@@ -370,7 +379,7 @@ int main(int argc, char* argv[]) {
 		addr = start;
 		while(addr < end && offset < size) {
 			uint32_t left	= end - addr;
-			len		= sizeof(buffer) > left ? left : sizeof(buffer);
+			len		= max_wlen > left ? left : max_wlen;
 			len		= len > size - offset ? size - offset : len;
 
 			if (parser->read(p_st, buffer, &len) != PARSER_ERR_OK)
@@ -394,10 +403,18 @@ int main(int argc, char* argv[]) {
 
 			if (verify) {
 				uint8_t compare[len];
-				s_err = stm32_read_memory(stm, addr, compare, len);
-				if (s_err != STM32_ERR_OK) {
-					fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr);
-					goto close;
+				unsigned int offset, rlen;
+
+				offset = 0;
+				while (offset < len) {
+					rlen = len - offset;
+					rlen = rlen < max_rlen ? rlen : max_rlen;
+					s_err = stm32_read_memory(stm, addr + offset, compare + offset, rlen);
+					if (s_err != STM32_ERR_OK) {
+						fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr + offset);
+						goto close;
+					}
+					offset += rlen;
 				}
 
 				for(r = 0; r < len; ++r)
