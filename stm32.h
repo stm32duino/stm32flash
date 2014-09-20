@@ -24,6 +24,9 @@
 #include <stdint.h>
 #include "serial.h"
 
+#define STM32_MAX_RX_FRAME	256	/* cmd read memory */
+#define STM32_MAX_TX_FRAME	(1 + 256 + 1)	/* cmd write memory */
+
 typedef enum {
 	STM32_ERR_OK = 0,
 	STM32_ERR_UNKNOWN,	/* Generic error */

@@ -52,6 +52,8 @@ struct port_options port_opts = {
 	.baudRate		= SERIAL_BAUD_57600,
 	.serial_mode		= "8e1",
 	.bus_addr		= 0,
+	.rx_frame_max		= STM32_MAX_RX_FRAME,
+	.tx_frame_max		= STM32_MAX_TX_FRAME,
 };
 int		rd	 	= 0;
 int		wr		= 0;
@@ -479,9 +481,12 @@ close:
 	return ret;
 }
 
-int parse_options(int argc, char *argv[]) {
+int parse_options(int argc, char *argv[])
+{
 	int c;
-	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:i:R")) != -1) {
+	char *pLen;
+
+	while ((c = getopt(argc, argv, "a:b:m:r:w:e:vn:g:jkfcChuos:S:F:i:R")) != -1) {
 		switch(c) {
 			case 'a':
 				port_opts.bus_addr = strtoul(optarg, NULL, 0);
@@ -595,7 +600,6 @@ int parse_options(int argc, char *argv[]) {
 					fprintf(stderr, "ERROR: Invalid options, can't specify start page / num pages and start address/length\n");
 					return 1;
 				} else {
-					char *pLen;
 					start_addr = strtoul(optarg, &pLen, 0);
 					if (*pLen == ':') {
 						pLen++;
@@ -605,6 +609,36 @@ int parse_options(int argc, char *argv[]) {
 							return 1;
 						}
 					}
+				}
+				break;
+			case 'F':
+				port_opts.rx_frame_max = strtoul(optarg, &pLen, 0);
+				if (*pLen == ':') {
+					pLen++;
+					port_opts.tx_frame_max = strtoul(pLen, NULL, 0);
+				}
+				if (port_opts.rx_frame_max < 0
+				    || port_opts.tx_frame_max < 0) {
+					fprintf(stderr, "ERROR: Invalid negative value for option -F\n");
+					return 1;
+				}
+				if (port_opts.rx_frame_max == 0)
+					port_opts.rx_frame_max = STM32_MAX_RX_FRAME;
+				if (port_opts.tx_frame_max == 0)
+					port_opts.tx_frame_max = STM32_MAX_TX_FRAME;
+				if (port_opts.rx_frame_max < 20
+				    || port_opts.tx_frame_max < 5) {
+					fprintf(stderr, "ERROR: current code cannot work with small frames.\n");
+					fprintf(stderr, "min(RX) = 20, min(TX) = 5\n");
+					return 1;
+				}
+				if (port_opts.rx_frame_max > STM32_MAX_RX_FRAME) {
+					fprintf(stderr, "WARNING: Ignore RX length in option -F\n");
+					port_opts.rx_frame_max = STM32_MAX_RX_FRAME;
+				}
+				if (port_opts.tx_frame_max > STM32_MAX_TX_FRAME) {
+					fprintf(stderr, "WARNING: Ignore TX length in option -F\n");
+					port_opts.tx_frame_max = STM32_MAX_TX_FRAME;
 				}
 				break;
 			case 'f':
@@ -676,6 +710,7 @@ void show_help(char *name) {
 		"	-g address	Start execution at specified address (0 = flash start)\n"
 		"	-S address[:length]	Specify start address and optionally length for\n"
 		"	                   	read/write/erase operations\n"
+		"	-F RX_length[:TX_length]  Specify the max length of RX and TX frame\n"
 		"	-s start_page	Flash at specified page (0 = flash start)\n"
 		"	-f		Force binary parser\n"
 		"	-h		Show this help\n"

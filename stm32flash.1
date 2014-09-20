@@ -23,7 +23,9 @@ stm32flash \- flashing utility for STM32 and STM32W through UART or I2C
 .RB [ \-s
 .IR start_page ]
 .RB [ \-S
-.IR address [: length ]
+.IR address [: length ]]
+.RB [ \-F
+.IR RX_length [: TX_length ]]
 .RB [ \-i
 .IR GPIO_string ]
 .RI [ tty_device
@@ -139,6 +141,14 @@ Specify flash page offset (0 = flash start).
 .TP
 .BI "\-S" " address" "[:" "length" "]"
 Specify start address and optionally length for read/write/erase/crc operations.
+
+.TP
+.BI "\-F" " RX_length" "[:" "TX_length" "]"
+Specify the maximum frame size for the current interface.
+Due to STM32 bootloader protocol, host will never handle frames bigger than
+256 byte in RX or 258 byte in TX.
+Due to current code, lowest limit in RX is 20 byte (to read a complete reply
+of command GET). Minimum limit in TX is 5 byte, required by protocol.
 
 .TP
 .B \-f
