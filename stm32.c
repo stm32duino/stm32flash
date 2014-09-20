@@ -496,12 +496,6 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 		return STM32_ERR_UNKNOWN;
 	}
 
-	/* must be 32bit aligned */
-	if (address & 0x3) {
-		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
-		return STM32_ERR_UNKNOWN;
-	}
-
 	if (stm->cmd->rm == STM32_CMD_ERR) {
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
 		return STM32_ERR_NO_CMD;
@@ -546,8 +540,8 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	}
 
 	/* must be 32bit aligned */
-	if (address & 0x3) {
-		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
+	if (address & 0x3 || len & 0x3) {
+		fprintf(stderr, "Error: WRITE address and length must be 4 byte aligned\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
@@ -856,7 +850,7 @@ static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
 
 	/* Must be 32-bit aligned */
 	if (target_address & 0x3) {
-		fprintf(stderr, "Error: READ address must be 4 byte aligned\n");
+		fprintf(stderr, "Error: code address must be 4 byte aligned\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
