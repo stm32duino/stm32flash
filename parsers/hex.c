@@ -64,7 +64,7 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 
 			char buffer[9];
 			unsigned int reclen, address, type;
-			uint8_t *record;
+			uint8_t *record = NULL;
 
 			/* get the reclen, address, and type */
 			buffer[8] = 0;
@@ -121,7 +121,11 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 
 				switch(type) {
 					case 0:
-						record[i] = c;
+						if (record != NULL) {
+							record[i] = c;
+						} else {
+							return PARSER_ERR_INVALID_FILE;
+						}
 						break;
 
 					case 2:
