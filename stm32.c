@@ -55,8 +55,8 @@
 #define STM32_CMD_CRC	0xA1	/* compute CRC */
 #define STM32_CMD_ERR	0xFF	/* not a valid command */
 
-#define STM32_RESYNC_TIMEOUT	10	/* seconds */
-#define STM32_MASSERASE_TIMEOUT	10	/* seconds */
+#define STM32_RESYNC_TIMEOUT	35	/* seconds */
+#define STM32_MASSERASE_TIMEOUT	35	/* seconds */
 #define STM32_SECTERASE_TIMEOUT	5	/* seconds */
 #define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
