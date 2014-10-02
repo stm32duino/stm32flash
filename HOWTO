@@ -1,11 +1,11 @@
 Add new interfaces:
 =====================================================================
-Current version 0.3 supports the following interfaces:
+Current version 0.4 supports the following interfaces:
 - UART Windows (either "COMn" and "\\.\COMn");
 - UART posix/Linux (e.g. "/dev/ttyUSB0");
 - I2C Linux through standard driver "i2c-dev" (e.g. "/dev/i2c-n").
 
-Starting from version 0.3, the back-end of stm32flash is modular and
+Starting from version 0.4, the back-end of stm32flash is modular and
 ready to be expanded to support new interfaces.
 I'm planning adding SPI on Linux through standard driver "spidev".
 You are invited to contribute with more interfaces.
