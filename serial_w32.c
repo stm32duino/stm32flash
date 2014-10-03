@@ -25,6 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <windows.h>
+#include <ctype.h>
 
 #include "serial.h"
 #include "port.h"
