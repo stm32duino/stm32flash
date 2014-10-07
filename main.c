@@ -644,9 +644,9 @@ int parse_options(int argc, char *argv[])
 				if (port_opts.tx_frame_max == 0)
 					port_opts.tx_frame_max = STM32_MAX_TX_FRAME;
 				if (port_opts.rx_frame_max < 20
-				    || port_opts.tx_frame_max < 5) {
+				    || port_opts.tx_frame_max < 6) {
 					fprintf(stderr, "ERROR: current code cannot work with small frames.\n");
-					fprintf(stderr, "min(RX) = 20, min(TX) = 5\n");
+					fprintf(stderr, "min(RX) = 20, min(TX) = 6\n");
 					return 1;
 				}
 				if (port_opts.rx_frame_max > STM32_MAX_RX_FRAME) {
