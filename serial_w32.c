@@ -187,8 +187,7 @@ static port_err_t serial_w32_open(struct port_interface *port,
 	serial_t *h;
 
 	/* 1. check device name match */
-	if (!(strlen(ops->device) == 4
-	      && !strncmp(ops->device, "COM", 3) && isdigit(ops->device[3]))
+	if (!(!strncmp(ops->device, "COM", 3) && isdigit(ops->device[3]))
 	    && !(!strncmp(ops->device, "\\\\.\\COM", strlen("\\\\.\\COM"))
 		 && isdigit(ops->device[strlen("\\\\.\\COM")])))
 		return PORT_ERR_NODEV;
