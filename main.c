@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
 	FILE *diag = stdout;
 
 	fprintf(diag, "stm32flash " VERSION "\n\n");
-	fprintf(diag, "http://stm32flash.googlecode.com/\n\n");
+	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
 
