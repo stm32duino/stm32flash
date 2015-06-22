@@ -55,13 +55,19 @@ struct port_options port_opts = {
 	.rx_frame_max		= STM32_MAX_RX_FRAME,
 	.tx_frame_max		= STM32_MAX_TX_FRAME,
 };
-int		rd	 	= 0;
-int		wr		= 0;
-int		wu		= 0;
-int		rp		= 0;
-int		ur		= 0;
-int		eraseOnly	= 0;
-int		crc		= 0;
+
+enum actions {
+	ACT_NONE,
+	ACT_READ,
+	ACT_WRITE,
+	ACT_WRITE_UNPROTECT,
+	ACT_READ_PROTECT,
+	ACT_READ_UNPROTECT,
+	ACT_ERASE_ONLY,
+	ACT_CRC
+};
+
+enum actions	action		= ACT_NONE;
 int		npages		= 0;
 int             spage           = 0;
 int             no_erase        = 0;
@@ -80,6 +86,36 @@ uint32_t	readwrite_len	= 0;
 /* functions */
 int  parse_options(int argc, char *argv[]);
 void show_help(char *name);
+
+static const char *action2str(enum actions act)
+{
+	switch (act) {
+		case ACT_READ:
+			return "memory read";
+		case ACT_WRITE:
+			return "memory write";
+		case ACT_WRITE_UNPROTECT:
+			return "write unprotect";
+		case ACT_READ_PROTECT:
+			return "read protect";
+		case ACT_READ_UNPROTECT:
+			return "read unprotect";
+		case ACT_ERASE_ONLY:
+			return "flash erase";
+		case ACT_CRC:
+			return "memory crc";
+		default:
+			return "";
+	};
+}
+
+static void err_multi_action(enum actions new)
+{
+	fprintf(stderr,
+		"ERROR: Invalid options !\n"
+		"\tCan't execute \"%s\" and \"%s\" at the same time.\n",
+		action2str(action), action2str(new));
+}
 
 static int is_addr_in_ram(uint32_t addr)
 {
@@ -125,11 +161,11 @@ int main(int argc, char* argv[]) {
 	if (parse_options(argc, argv) != 0)
 		goto close;
 
-	if (rd && filename[0] == '-') {
+	if ((action == ACT_READ) && filename[0] == '-') {
 		diag = stderr;
 	}
 
-	if (wr) {
+	if (action == ACT_WRITE) {
 		/* first try hex */
 		if (!force_binary) {
 			parser = &PARSER_HEX;
@@ -260,7 +296,7 @@ int main(int argc, char* argv[]) {
 			num_pages = 0xff; /* mass erase */
 	}
 
-	if (rd) {
+	if (action == ACT_READ) {
 		unsigned int max_len = port_opts.rx_frame_max;
 
 		fprintf(diag, "Memory read\n");
@@ -300,19 +336,19 @@ int main(int argc, char* argv[]) {
 		fprintf(diag,	"Done.\n");
 		ret = 0;
 		goto close;
-	} else if (rp) {
+	} else if (action == ACT_READ_PROTECT) {
 		fprintf(stdout, "Read-Protecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_readprot_memory(stm);
 		fprintf(stdout,	"Done.\n");
-	} else if (ur) {
+	} else if (action == ACT_READ_UNPROTECT) {
 		fprintf(stdout, "Read-UnProtecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_runprot_memory(stm);
 		fprintf(stdout,	"Done.\n");
-	} else if (eraseOnly) {
+	} else if (action == ACT_ERASE_ONLY) {
 		ret = 0;
 		fprintf(stdout, "Erasing flash\n");
 
@@ -330,14 +366,14 @@ int main(int argc, char* argv[]) {
 			ret = 1;
 			goto close;
 		}
-	} else if (wu) {
+	} else if (action == ACT_WRITE_UNPROTECT) {
 		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		stm32_wunprot_memory(stm);
 		fprintf(diag,	"Done.\n");
 
-	} else if (wr) {
+	} else if (action == ACT_WRITE) {
 		fprintf(diag, "Write to memory\n");
 
 		off_t 	offset = 0;
@@ -450,7 +486,7 @@ int main(int argc, char* argv[]) {
 		fprintf(diag,	"Done.\n");
 		ret = 0;
 		goto close;
-	} else if (crc) {
+	} else if (action == ACT_CRC) {
 		uint32_t crc_val = 0;
 
 		fprintf(diag, "CRC computation\n");
@@ -533,12 +569,11 @@ int parse_options(int argc, char *argv[])
 
 			case 'r':
 			case 'w':
-				rd = rd || c == 'r';
-				wr = wr || c == 'w';
-				if (rd && wr) {
-					fprintf(stderr, "ERROR: Invalid options, can't read & write at the same time\n");
+				if (action != ACT_NONE) {
+					err_multi_action((c == 'r') ? ACT_READ : ACT_WRITE);
 					return 1;
 				}
+				action = (c == 'r') ? ACT_READ : ACT_WRITE;
 				filename = optarg;
 				if (filename[0] == '-') {
 					force_binary = 1;
@@ -558,37 +593,37 @@ int parse_options(int argc, char *argv[])
 					no_erase = 1;
 				break;
 			case 'u':
-				wu = 1;
-				if (rd || wr) {
-					fprintf(stderr, "ERROR: Invalid options, can't write unprotect and read/write at the same time\n");
+				if (action != ACT_NONE) {
+					err_multi_action(ACT_WRITE_UNPROTECT);
 					return 1;
 				}
+				action = ACT_WRITE_UNPROTECT;
 				break;
 
 			case 'j':
-				rp = 1;
-				if (rd || wr) {
-					fprintf(stderr, "ERROR: Invalid options, can't read protect and read/write at the same time\n");
+				if (action != ACT_NONE) {
+					err_multi_action(ACT_READ_PROTECT);
 					return 1;
 				}
+				action = ACT_READ_PROTECT;
 				break;
 
 			case 'k':
-				ur = 1;
-				if (rd || wr) {
-					fprintf(stderr, "ERROR: Invalid options, can't read unprotect and read/write at the same time\n");
+				if (action != ACT_NONE) {
+					err_multi_action(ACT_READ_UNPROTECT);
 					return 1;
 				}
+				action = ACT_READ_UNPROTECT;
 				break;
 
 			case 'o':
-				eraseOnly = 1;
-				if (rd || wr) {
-					fprintf(stderr, "ERROR: Invalid options, can't erase-only and read/write at the same time\n");
+				if (action != ACT_NONE) {
+					err_multi_action(ACT_ERASE_ONLY);
 					return 1;
 				}
-				break;				
-			
+				action = ACT_ERASE_ONLY;
+				break;
+
 			case 'v':
 				verify = 1;
 				break;
@@ -679,7 +714,11 @@ int parse_options(int argc, char *argv[])
 				break;
 
 			case 'C':
-				crc = 1;
+				if (action != ACT_NONE) {
+					err_multi_action(ACT_CRC);
+					return 1;
+				}
+				action = ACT_CRC;
 				break;
 		}
 	}
@@ -699,7 +738,7 @@ int parse_options(int argc, char *argv[])
 		return 1;
 	}
 
-	if (!wr && verify) {
+	if ((action != ACT_WRITE) && verify) {
 		fprintf(stderr, "ERROR: Invalid usage, -v is only valid when writing\n");
 		show_help(argv[0]);
 		return 1;
