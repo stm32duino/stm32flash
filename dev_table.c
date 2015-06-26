@@ -1,7 +1,7 @@
 /*
   stm32flash - Open Source ST STM32 flash program for *nix
   Copyright (C) 2010 Geoffrey McRae <geoff@spacevs.com>
-  Copyright (C) 2014 Antonio Borneo <borneo.antonio@gmail.com>
+  Copyright (C) 2014-2015 Antonio Borneo <borneo.antonio@gmail.com>
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
