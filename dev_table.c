@@ -43,7 +43,7 @@ const stm32_dev_t devices[] = {
 	/* Note that F2 and F4 devices have sectors of different page sizes
            and only the first sectors (of one page size) are included here */
 	/* F2 */
-	{0x411, "STM32F2xx"         , 0x20002000, 0x20020000, 0x08000000, 0x08100000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF77DF},
+	{0x411, "STM32F2xxxx"       , 0x20002000, 0x20020000, 0x08000000, 0x08100000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF7800},
 	/* F3 */
 	{0x432, "STM32F373/8"       , 0x20001400, 0x20008000, 0x08000000, 0x08040000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFD800, 0x1FFFF800},
 	{0x422, "F302xB/303xB/358"  , 0x20001400, 0x20010000, 0x08000000, 0x08040000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFD800, 0x1FFFF800},
