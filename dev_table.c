@@ -40,7 +40,7 @@ const stm32_dev_t devices[] = {
 	{0x428, "STM32F10xxx High-density VL"     , 0x20000200, 0x20008000, 0x08000000, 0x08080000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFF000, 0x1FFFF800},
 	{0x418, "STM32F105xx/F107xx"              , 0x20001000, 0x20010000, 0x08000000, 0x08040000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFB000, 0x1FFFF800},
 	{0x430, "STM32F10xxx XL-density"          , 0x20000800, 0x20018000, 0x08000000, 0x08100000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFE000, 0x1FFFF800},
-	/* Note that F2 and F4 devices have sectors of different page sizes
+	/* Note that F2, F4 and F7 devices have sectors of different page sizes
            and only the first sectors (of one page size) are included here */
 	/* F2 */
 	{0x411, "STM32F2xxxx"                     , 0x20002000, 0x20020000, 0x08000000, 0x08100000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF7800},
@@ -57,6 +57,8 @@ const stm32_dev_t devices[] = {
 	{0x433, "STM32F401xD(E)"                  , 0x20003000, 0x20018000, 0x08000000, 0x08080000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF7800},
 	{0x431, "STM32F411xx"                     , 0x20003000, 0x20020000, 0x08000000, 0x08080000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF7800},
 	{0x421, "STM32F446xx"                     , 0x20003000, 0x20020000, 0x08000000, 0x08080000,  4, 16384, 0x1FFFC000, 0x1FFFC00F, 0x1FFF0000, 0x1FFF7800},
+	/* F7 */
+	{0x449, "STM32F74xxx/75xxx"               , 0x20004000, 0x20050000, 0x08000000, 0x08100000,  4, 32768, 0x1FFF0000, 0x1FFF001F, 0x1FF00000, 0x1FF0EDC0},
 	/* L0 */
 	{0x417, "L05xxx/06xxx"                    , 0x20001000, 0x20002000, 0x08000000, 0x08010000, 32,  128, 0x1FF80000, 0x1FF8000F, 0x1FF00000, 0x1FF01000},
 	/* L1 */
