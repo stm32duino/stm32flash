@@ -55,7 +55,7 @@ struct stm32_dev {
 	uint32_t	ram_start, ram_end;
 	uint32_t	fl_start, fl_end;
 	uint16_t	fl_pps; // pages per sector
-	uint16_t	fl_ps;  // page size
+	uint32_t	*fl_ps;  // page size
 	uint32_t	opt_start, opt_end;
 	uint32_t	mem_start, mem_end;
 };

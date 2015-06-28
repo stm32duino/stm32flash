@@ -132,7 +132,7 @@ static int flash_addr_to_page_floor(uint32_t addr)
 	if (!is_addr_in_flash(addr))
 		return 0;
 
-	return (addr - stm->dev->fl_start) / stm->dev->fl_ps;
+	return (addr - stm->dev->fl_start) / stm->dev->fl_ps[0];
 }
 
 static int flash_addr_to_page_ceil(uint32_t addr)
@@ -140,13 +140,13 @@ static int flash_addr_to_page_ceil(uint32_t addr)
 	if (!(addr >= stm->dev->fl_start && addr <= stm->dev->fl_end))
 		return 0;
 
-	return (addr + stm->dev->fl_ps - 1 - stm->dev->fl_start)
-	       / stm->dev->fl_ps;
+	return (addr + stm->dev->fl_ps[0] - 1 - stm->dev->fl_start)
+	       / stm->dev->fl_ps[0];
 }
 
 static uint32_t flash_page_to_addr(int page)
 {
-	return stm->dev->fl_start + page * stm->dev->fl_ps;
+	return stm->dev->fl_start + page * stm->dev->fl_ps[0];
 }
 
 int main(int argc, char* argv[]) {
@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
 	}
 	fprintf(diag, "Device ID    : 0x%04x (%s)\n", stm->pid, stm->dev->name);
 	fprintf(diag, "- RAM        : %dKiB  (%db reserved by bootloader)\n", (stm->dev->ram_end - 0x20000000) / 1024, stm->dev->ram_start - 0x20000000);
-	fprintf(diag, "- Flash      : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps);
+	fprintf(diag, "- Flash      : %dKiB (sector size: %dx%d)\n", (stm->dev->fl_end - stm->dev->fl_start ) / 1024, stm->dev->fl_pps, stm->dev->fl_ps[0]);
 	fprintf(diag, "- Option RAM : %db\n", stm->dev->opt_end - stm->dev->opt_start + 1);
 	fprintf(diag, "- System RAM : %dKiB\n", (stm->dev->mem_end - stm->dev->mem_start) / 1024);
 
@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
 
 		// TODO: It is possible to write to non-page boundaries, by reading out flash
 		//       from partial pages and combining with the input data
-		// if ((start % stm->dev->fl_ps) != 0 || (end % stm->dev->fl_ps) != 0) {
+		// if ((start % stm->dev->fl_ps[i]) != 0 || (end % stm->dev->fl_ps[i]) != 0) {
 		//	fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
 		//	goto close;
 		// } 
