@@ -26,6 +26,7 @@
  * Note that the option bytes upper range is inclusive!
  */
 const stm32_dev_t devices[] = {
+	/* ID   "name"                              SRAM-address-range      FLASH-address-range    PPS  PSize Option-byte-addr-range  System-mem-addr-range */
 	/* F0 */
 	{0x440, "STM32F030x8/F05xxx"              , 0x20000800, 0x20002000, 0x08000000, 0x08010000,  4, 1024, 0x1FFFF800, 0x1FFFF80F, 0x1FFFEC00, 0x1FFFF800},
 	{0x442, "STM32F030xC/F09xxx"              , 0x20001800, 0x20008000, 0x08000000, 0x08040000,  2, 2048, 0x1FFFF800, 0x1FFFF80F, 0x1FFFC800, 0x1FFFF800},
