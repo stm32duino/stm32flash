@@ -604,7 +604,7 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_WUNPROT_TIMEOUT);
-	if (s_err == STM32_NACK) {
+	if (s_err == STM32_ERR_NACK) {
 		fprintf(stderr, "Error: Failed to WRITE UNPROTECT\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -631,7 +631,7 @@ stm32_err_t stm32_wprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_WPROT_TIMEOUT);
-	if (s_err == STM32_NACK) {
+	if (s_err == STM32_ERR_NACK) {
 		fprintf(stderr, "Error: Failed to WRITE PROTECT\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -658,7 +658,7 @@ stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-	if (s_err == STM32_NACK) {
+	if (s_err == STM32_ERR_NACK) {
 		fprintf(stderr, "Error: Failed to READOUT UNPROTECT\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -685,7 +685,7 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_RPROT_TIMEOUT);
-	if (s_err == STM32_NACK) {
+	if (s_err == STM32_ERR_NACK) {
 		fprintf(stderr, "Error: Failed to READOUT PROTECT\n");
 		return STM32_ERR_UNKNOWN;
 	}
