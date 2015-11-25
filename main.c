@@ -127,26 +127,68 @@ static int is_addr_in_flash(uint32_t addr)
 	return addr >= stm->dev->fl_start && addr < stm->dev->fl_end;
 }
 
+/* returns the page that contains address "addr" */
 static int flash_addr_to_page_floor(uint32_t addr)
 {
+	int page;
+	uint32_t *psize;
+
 	if (!is_addr_in_flash(addr))
 		return 0;
 
-	return (addr - stm->dev->fl_start) / stm->dev->fl_ps[0];
+	page = 0;
+	addr -= stm->dev->fl_start;
+	psize = stm->dev->fl_ps;
+
+	while (addr >= psize[0]) {
+		addr -= psize[0];
+		page++;
+		if (psize[1])
+			psize++;
+	}
+
+	return page;
 }
 
+/* returns the first page whose start addr is >= "addr" */
 static int flash_addr_to_page_ceil(uint32_t addr)
 {
+	int page;
+	uint32_t *psize;
+
 	if (!(addr >= stm->dev->fl_start && addr <= stm->dev->fl_end))
 		return 0;
 
-	return (addr + stm->dev->fl_ps[0] - 1 - stm->dev->fl_start)
-	       / stm->dev->fl_ps[0];
+	page = 0;
+	addr -= stm->dev->fl_start;
+	psize = stm->dev->fl_ps;
+
+	while (addr >= psize[0]) {
+		addr -= psize[0];
+		page++;
+		if (psize[1])
+			psize++;
+	}
+
+	return addr ? page + 1 : page;
 }
 
+/* returns the lower address of flash page "page" */
 static uint32_t flash_page_to_addr(int page)
 {
-	return stm->dev->fl_start + page * stm->dev->fl_ps[0];
+	int i;
+	uint32_t addr, *psize;
+
+	addr = stm->dev->fl_start;
+	psize = stm->dev->fl_ps;
+
+	for (i = 0; i < page; i++) {
+		addr += psize[0];
+		if (psize[1])
+			psize++;
+	}
+
+	return addr;
 }
 
 int main(int argc, char* argv[]) {
