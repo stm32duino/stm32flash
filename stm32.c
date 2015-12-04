@@ -542,8 +542,8 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	}
 
 	/* must be 32bit aligned */
-	if (address & 0x3 || len & 0x3) {
-		fprintf(stderr, "Error: WRITE address and length must be 4 byte aligned\n");
+	if (address & 0x3) {
+		fprintf(stderr, "Error: WRITE address must be 4 byte aligned\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
