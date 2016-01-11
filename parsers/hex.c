@@ -168,11 +168,11 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 						return PARSER_ERR_INVALID_FILE;
 					}
 
-					/* if there is a gap, enlarge and fill with zeros */
+					/* if there is a gap, enlarge and fill with 0xff */
 					unsigned int len = base - st->base;
 					if (len > st->data_len) {
 						st->data = realloc(st->data, len);
-						memset(&st->data[st->data_len], 0, len - st->data_len);
+						memset(&st->data[st->data_len], 0xff, len - st->data_len);
 						st->data_len = len;
 					}
 					break;
