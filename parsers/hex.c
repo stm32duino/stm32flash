@@ -105,7 +105,7 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 
 				/* extended linear address record */
 				case 4:
-					base = address;
+					base = 0;
 					break;
 			}
 
