@@ -157,7 +157,12 @@ parser_err_t hex_open(void *storage, const char *filename, const char write) {
 					/* Reset last_address since our base changed */
 					last_address = 0;
 
-					if (st->base == 0) {
+					/* Only assign the program's base address once, and only
+					 * do so if we haven't seen any data records yet.
+					 * If there are any data records before address records,
+					 * the program's base address must be zero.
+					 */
+					if (st->base == 0 && st->data_len == 0) {
 						st->base = base;
 						break;
 					}
