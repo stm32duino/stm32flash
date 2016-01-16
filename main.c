@@ -308,14 +308,14 @@ int main(int argc, char* argv[]) {
 
 		first_page = flash_addr_to_page_floor(start);
 		if (!first_page && end == stm->dev->fl_end)
-			num_pages = 0xff; /* mass erase */
+			num_pages = STM32_MASS_ERASE;
 		else
 			num_pages = flash_addr_to_page_ceil(end) - first_page;
 	} else if (!spage && !npages) {
 		start = stm->dev->fl_start;
 		end = stm->dev->fl_end;
 		first_page = 0;
-		num_pages = 0xff; /* mass erase */
+		num_pages = STM32_MASS_ERASE;
 	} else {
 		first_page = spage;
 		start = flash_page_to_addr(first_page);
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		if (!first_page && end == stm->dev->fl_end)
-			num_pages = 0xff; /* mass erase */
+			num_pages = STM32_MASS_ERASE;
 	}
 
 	if (action == ACT_READ) {
@@ -394,7 +394,7 @@ int main(int argc, char* argv[]) {
 		ret = 0;
 		fprintf(stdout, "Erasing flash\n");
 
-		if (num_pages != 0xff &&
+		if (num_pages != STM32_MASS_ERASE &&
 		    (start != flash_page_to_addr(first_page)
 		     || end != flash_page_to_addr(first_page + num_pages))) {
 			fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");

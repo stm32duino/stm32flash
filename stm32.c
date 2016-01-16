@@ -698,13 +698,14 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 	return STM32_ERR_OK;
 }
 
-stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
+stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t pages)
 {
 	struct port_interface *port = stm->port;
 	stm32_err_t s_err;
 	port_err_t p_err;
 
-	if (!pages)
+	if (!pages || spage > STM32_MAX_PAGES ||
+	    ((pages != STM32_MASS_ERASE) && ((spage + pages) > STM32_MAX_PAGES)))
 		return STM32_ERR_OK;
 
 	if (stm->cmd->er == STM32_CMD_ERR) {
@@ -725,10 +726,10 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
 		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
 		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
-		if (stm->pid == 0x416 && pages == 0xFF)
+		if (stm->pid == 0x416 && pages == STM32_MASS_ERASE)
 			pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
 
-		if (pages == 0xFF) {
+		if (pages == STM32_MASS_ERASE) {
 			uint8_t buf[3];
 
 			/* 0xFFFF the magic number for mass erase */
@@ -750,7 +751,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 			return STM32_ERR_OK;
 		}
 
-		uint16_t pg_num;
+		uint32_t pg_num;
 		uint8_t pg_byte;
 		uint8_t cs = 0;
 		uint8_t *buf;
@@ -797,7 +798,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 	}
 
 	/* And now the regular erase (0x43) for all other chips */
-	if (pages == 0xFF) {
+	if (pages == STM32_MASS_ERASE) {
 		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
 		if (s_err != STM32_ERR_OK) {
 			if (port->flags & PORT_STRETCH_W)
@@ -807,7 +808,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage, uint8_t pages)
 		return STM32_ERR_OK;
 	} else {
 		uint8_t cs = 0;
-		uint8_t pg_num;
+		uint32_t pg_num;
 		uint8_t *buf;
 		int i = 0;
 

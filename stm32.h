@@ -27,6 +27,9 @@
 #define STM32_MAX_RX_FRAME	256	/* cmd read memory */
 #define STM32_MAX_TX_FRAME	(1 + 256 + 1)	/* cmd write memory */
 
+#define STM32_MAX_PAGES		0x0000ffff
+#define STM32_MASS_ERASE	0x00100000 /* > 2 x max_pages */
+
 typedef enum {
 	STM32_ERR_OK = 0,
 	STM32_ERR_UNKNOWN,	/* Generic error */
@@ -68,8 +71,8 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 			       const uint8_t data[], unsigned int len);
 stm32_err_t stm32_wunprot_memory(const stm32_t *stm);
 stm32_err_t stm32_wprot_memory(const stm32_t *stm);
-stm32_err_t stm32_erase_memory(const stm32_t *stm, uint8_t spage,
-			       uint8_t pages);
+stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage,
+			       uint32_t pages);
 stm32_err_t stm32_go(const stm32_t *stm, uint32_t address);
 stm32_err_t stm32_reset_device(const stm32_t *stm);
 stm32_err_t stm32_readprot_memory(const stm32_t *stm);
