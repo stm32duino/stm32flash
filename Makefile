@@ -19,7 +19,7 @@ all: stm32flash
 
 serial_platform.o: serial_posix.c serial_w32.c
 
-parsers/parsers.a:
+parsers/parsers.a: force
 	cd parsers && $(MAKE) parsers.a
 
 stm32flash: $(OBJS) $(LIBOBJS)
@@ -35,4 +35,6 @@ install: all
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/man/man1
 	$(INSTALL) -m 644 stm32flash.1 $(DESTDIR)$(PREFIX)/share/man/man1
 
-.PHONY: all clean install
+force:
+
+.PHONY: all clean install force
