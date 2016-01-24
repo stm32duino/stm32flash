@@ -26,6 +26,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <stdio.h>
 
 #include "serial.h"
 #include "port.h"
@@ -198,30 +199,12 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 	return PORT_ERR_OK;
 }
 
-static int startswith(const char *haystack, const char *needle) {
-	return strncmp(haystack, needle, strlen(needle)) == 0;
-}
-
-static int is_tty(const char *path) {
-	char resolved[PATH_MAX];
-
-	if(!realpath(path, resolved)) return 0;
-
-	if(startswith(resolved, "/dev/tty")) return 1;
-
-	return 0;
-}
-
 static port_err_t serial_posix_open(struct port_interface *port,
 				    struct port_options *ops)
 {
 	serial_t *h;
 
-	/* 1. check device name match */
-	if (!is_tty(ops->device))
-		return PORT_ERR_NODEV;
-
-	/* 2. check options */
+	/* 1. check options */
 	if (ops->baudRate == SERIAL_BAUD_INVALID)
 		return PORT_ERR_UNKNOWN;
 	if (serial_get_bits(ops->serial_mode) == SERIAL_BITS_INVALID)
@@ -231,10 +214,14 @@ static port_err_t serial_posix_open(struct port_interface *port,
 	if (serial_get_stopbit(ops->serial_mode) == SERIAL_STOPBIT_INVALID)
 		return PORT_ERR_UNKNOWN;
 
-	/* 3. open it */
+	/* 2. open it */
 	h = serial_open(ops->device);
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
+
+	/* 3. check for tty (but only warn) */
+	if (!isatty(h->fd))
+		fprintf(stderr, "Warning: Not a tty: %s\n", ops->device);
 
 	/* 4. set options */
 	if (serial_setup(h, ops->baudRate,
