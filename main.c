@@ -151,7 +151,7 @@ static int flash_addr_to_page_floor(uint32_t addr)
 }
 
 /* returns the first page whose start addr is >= "addr" */
-static int flash_addr_to_page_ceil(uint32_t addr)
+int flash_addr_to_page_ceil(uint32_t addr)
 {
 	int page;
 	uint32_t *psize;
