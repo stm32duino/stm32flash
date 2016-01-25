@@ -829,6 +829,9 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 
 stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t pages)
 {
+	uint32_t n;
+	stm32_err_t s_err;
+
 	if (!pages || spage > STM32_MAX_PAGES ||
 	    ((pages != STM32_MASS_ERASE) && ((spage + pages) > STM32_MAX_PAGES)))
 		return STM32_ERR_OK;
@@ -852,7 +855,19 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 
 	}
 
-	return stm32_pages_erase(stm, spage, pages);
+	/*
+	 * Some device, like STM32L152, cannot erase more than 512 pages in
+	 * one command. Split the call.
+	 */
+	while (pages) {
+		n = (pages <= 512) ? pages : 512;
+		s_err = stm32_pages_erase(stm, spage, n);
+		if (s_err != STM32_ERR_OK)
+			return s_err;
+		spage += n;
+		pages -= n;
+	}
+	return STM32_ERR_OK;
 }
 
 static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
