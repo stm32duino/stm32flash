@@ -698,6 +698,47 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 	return STM32_ERR_OK;
 }
 
+static stm32_err_t stm32_mass_erase(const stm32_t *stm)
+{
+	struct port_interface *port = stm->port;
+	stm32_err_t s_err;
+	uint8_t buf[3];
+
+	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
+		fprintf(stderr, "Can't initiate chip mass erase!\n");
+		return STM32_ERR_UNKNOWN;
+	}
+
+	/* regular erase (0x43) */
+	if (stm->cmd->er == STM32_CMD_ER) {
+		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
+		if (s_err != STM32_ERR_OK) {
+			if (port->flags & PORT_STRETCH_W)
+				stm32_warn_stretching("mass erase");
+			return STM32_ERR_UNKNOWN;
+		}
+		return STM32_ERR_OK;
+	}
+
+	/* extended erase */
+	buf[0] = 0xFF;	/* 0xFFFF the magic number for mass erase */
+	buf[1] = 0xFF;
+	buf[2] = 0x00;  /* checksum */
+	if (port->write(port, buf, 3) != PORT_ERR_OK) {
+		fprintf(stderr, "Mass erase error.\n");
+		return STM32_ERR_UNKNOWN;
+	}
+	s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+	if (s_err != STM32_ERR_OK) {
+		fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
+	if (port->flags & PORT_STRETCH_W
+	    && stm->cmd->er != STM32_CMD_EE_NS)
+		stm32_warn_stretching("mass erase");
+		return STM32_ERR_UNKNOWN;
+	}
+	return STM32_ERR_OK;
+}
+
 stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t pages)
 {
 	struct port_interface *port = stm->port;
@@ -713,6 +754,19 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 		return STM32_ERR_NO_CMD;
 	}
 
+	if (pages == STM32_MASS_ERASE) {
+		/*
+		 * Not all chips using Extended Erase support mass erase.
+		 * Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range
+		 * So if someone has not overridden the default, but uses one of these chips, take it out of
+		 * mass erase mode, so it will be done page by page. This maximum might not be correct either!
+		 */
+		if (stm->pid != 0x416)
+			return stm32_mass_erase(stm);
+
+		pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
+	}
+
 	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
 		fprintf(stderr, "Can't initiate chip erase!\n");
 		return STM32_ERR_UNKNOWN;
@@ -722,35 +776,6 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
 	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
 	if (stm->cmd->er != STM32_CMD_ER) {
-		/* Not all chips using Extended Erase support mass erase */
-		/* Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range */
-		/* So if someone has not overridden the default, but uses one of these chips, take it out of */
-		/* mass erase mode, so it will be done page by page. This maximum might not be correct either! */
-		if (stm->pid == 0x416 && pages == STM32_MASS_ERASE)
-			pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
-
-		if (pages == STM32_MASS_ERASE) {
-			uint8_t buf[3];
-
-			/* 0xFFFF the magic number for mass erase */
-			buf[0] = 0xFF;
-			buf[1] = 0xFF;
-			buf[2] = 0x00;	/* checksum */
-			if (port->write(port, buf, 3) != PORT_ERR_OK) {
-				fprintf(stderr, "Mass erase error.\n");
-				return STM32_ERR_UNKNOWN;
-			}
-			s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
-			if (s_err != STM32_ERR_OK) {
-				fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
-				if (port->flags & PORT_STRETCH_W
-				    && stm->cmd->er != STM32_CMD_EE_NS)
-					stm32_warn_stretching("erase");
-				return STM32_ERR_UNKNOWN;
-			}
-			return STM32_ERR_OK;
-		}
-
 		uint32_t pg_num;
 		uint8_t pg_byte;
 		uint8_t cs = 0;
@@ -798,15 +823,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 	}
 
 	/* And now the regular erase (0x43) for all other chips */
-	if (pages == STM32_MASS_ERASE) {
-		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
-		if (s_err != STM32_ERR_OK) {
-			if (port->flags & PORT_STRETCH_W)
-				stm32_warn_stretching("erase");
-			return STM32_ERR_UNKNOWN;
-		}
-		return STM32_ERR_OK;
-	} else {
+	{
 		uint8_t cs = 0;
 		uint32_t pg_num;
 		uint8_t *buf;
