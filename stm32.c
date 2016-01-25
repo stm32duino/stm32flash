@@ -739,96 +739,27 @@ static stm32_err_t stm32_mass_erase(const stm32_t *stm)
 	return STM32_ERR_OK;
 }
 
-stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t pages)
+static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_t pages)
 {
 	struct port_interface *port = stm->port;
 	stm32_err_t s_err;
 	port_err_t p_err;
-
-	if (!pages || spage > STM32_MAX_PAGES ||
-	    ((pages != STM32_MASS_ERASE) && ((spage + pages) > STM32_MAX_PAGES)))
-		return STM32_ERR_OK;
-
-	if (stm->cmd->er == STM32_CMD_ERR) {
-		fprintf(stderr, "Error: ERASE command not implemented in bootloader.\n");
-		return STM32_ERR_NO_CMD;
-	}
-
-	if (pages == STM32_MASS_ERASE) {
-		/*
-		 * Not all chips using Extended Erase support mass erase.
-		 * Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range
-		 * So if someone has not overridden the default, but uses one of these chips, take it out of
-		 * mass erase mode, so it will be done page by page. This maximum might not be correct either!
-		 */
-		if (stm->pid != 0x416)
-			return stm32_mass_erase(stm);
-
-		pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
-	}
-
-	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
-		fprintf(stderr, "Can't initiate chip erase!\n");
-		return STM32_ERR_UNKNOWN;
-	}
+	uint32_t pg_num;
+	uint8_t pg_byte;
+	uint8_t cs = 0;
+	uint8_t *buf;
+	int i = 0;
 
 	/* The erase command reported by the bootloader is either 0x43, 0x44 or 0x45 */
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
 	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
-	if (stm->cmd->er != STM32_CMD_ER) {
-		uint32_t pg_num;
-		uint8_t pg_byte;
-		uint8_t cs = 0;
-		uint8_t *buf;
-		int i = 0;
-
-		buf = malloc(2 + 2 * pages + 1);
-		if (!buf)
-			return STM32_ERR_UNKNOWN;
-
-		/* Number of pages to be erased - 1, two bytes, MSB first */
-		pg_byte = (pages - 1) >> 8;
-		buf[i++] = pg_byte;
-		cs ^= pg_byte;
-		pg_byte = (pages - 1) & 0xFF;
-		buf[i++] = pg_byte;
-		cs ^= pg_byte;
-
-		for (pg_num = spage; pg_num < spage + pages; pg_num++) {
-			pg_byte = pg_num >> 8;
-			cs ^= pg_byte;
-			buf[i++] = pg_byte;
-			pg_byte = pg_num & 0xFF;
-			cs ^= pg_byte;
-			buf[i++] = pg_byte;
-		}
-		buf[i++] = cs;
-		p_err = port->write(port, buf, i);
-		free(buf);
-		if (p_err != PORT_ERR_OK) {
-			fprintf(stderr, "Page-by-page erase error.\n");
-			return STM32_ERR_UNKNOWN;
-		}
-
-		s_err = stm32_get_ack_timeout(stm, pages * STM32_SECTERASE_TIMEOUT);
-		if (s_err != STM32_ERR_OK) {
-			fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
-			if (port->flags & PORT_STRETCH_W
-			    && stm->cmd->er != STM32_CMD_EE_NS)
-				stm32_warn_stretching("erase");
-			return STM32_ERR_UNKNOWN;
-		}
-
-		return STM32_ERR_OK;
+	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
+		fprintf(stderr, "Can't initiate chip mass erase!\n");
+		return STM32_ERR_UNKNOWN;
 	}
 
-	/* And now the regular erase (0x43) for all other chips */
-	{
-		uint8_t cs = 0;
-		uint32_t pg_num;
-		uint8_t *buf;
-		int i = 0;
-
+	/* regular erase (0x43) */
+	if (stm->cmd->er == STM32_CMD_ER) {
 		buf = malloc(1 + pages + 1);
 		if (!buf)
 			return STM32_ERR_UNKNOWN;
@@ -854,6 +785,74 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 		}
 		return STM32_ERR_OK;
 	}
+
+	/* extended erase */
+	buf = malloc(2 + 2 * pages + 1);
+	if (!buf)
+		return STM32_ERR_UNKNOWN;
+
+	/* Number of pages to be erased - 1, two bytes, MSB first */
+	pg_byte = (pages - 1) >> 8;
+	buf[i++] = pg_byte;
+	cs ^= pg_byte;
+	pg_byte = (pages - 1) & 0xFF;
+	buf[i++] = pg_byte;
+	cs ^= pg_byte;
+
+	for (pg_num = spage; pg_num < spage + pages; pg_num++) {
+		pg_byte = pg_num >> 8;
+		cs ^= pg_byte;
+		buf[i++] = pg_byte;
+		pg_byte = pg_num & 0xFF;
+		cs ^= pg_byte;
+		buf[i++] = pg_byte;
+	}
+	buf[i++] = cs;
+	p_err = port->write(port, buf, i);
+	free(buf);
+	if (p_err != PORT_ERR_OK) {
+		fprintf(stderr, "Page-by-page erase error.\n");
+		return STM32_ERR_UNKNOWN;
+	}
+
+	s_err = stm32_get_ack_timeout(stm, pages * STM32_SECTERASE_TIMEOUT);
+	if (s_err != STM32_ERR_OK) {
+		fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
+		if (port->flags & PORT_STRETCH_W
+		    && stm->cmd->er != STM32_CMD_EE_NS)
+			stm32_warn_stretching("erase");
+		return STM32_ERR_UNKNOWN;
+	}
+
+	return STM32_ERR_OK;
+}
+
+stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t pages)
+{
+	if (!pages || spage > STM32_MAX_PAGES ||
+	    ((pages != STM32_MASS_ERASE) && ((spage + pages) > STM32_MAX_PAGES)))
+		return STM32_ERR_OK;
+
+	if (stm->cmd->er == STM32_CMD_ERR) {
+		fprintf(stderr, "Error: ERASE command not implemented in bootloader.\n");
+		return STM32_ERR_NO_CMD;
+	}
+
+	if (pages == STM32_MASS_ERASE) {
+		/*
+		 * Not all chips using Extended Erase support mass erase.
+		 * Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range
+		 * So if someone has not overridden the default, but uses one of these chips, take it out of
+		 * mass erase mode, so it will be done page by page. This maximum might not be correct either!
+		 */
+		if (stm->pid != 0x416)
+			return stm32_mass_erase(stm);
+
+		pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
+
+	}
+
+	return stm32_pages_erase(stm, spage, pages);
 }
 
 static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
