@@ -843,16 +843,19 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 
 	if (pages == STM32_MASS_ERASE) {
 		/*
-		 * Not all chips using Extended Erase support mass erase.
-		 * Currently known as not supporting mass erase is the Ultra Low Power STM32L15xx range
-		 * So if someone has not overridden the default, but uses one of these chips, take it out of
-		 * mass erase mode, so it will be done page by page. This maximum might not be correct either!
+		 * Not all chips support mass erase.
+		 * Mass erase can be obtained executing a "readout protect"
+		 * followed by "readout un-protect". This method is not
+		 * suggested because can hang the target if a debug SWD/JTAG
+		 * is connected. When the target enters in "readout
+		 * protection" mode it will consider the debug connection as
+		 * a tentative of intrusion and will hang.
+		 * Erasing the flash page-by-page is the safer way to go.
 		 */
-		if (stm->pid != 0x416)
+		if (!(stm->dev->flags & F_NO_ME))
 			return stm32_mass_erase(stm);
 
 		pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
-
 	}
 
 	/*
