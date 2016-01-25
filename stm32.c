@@ -97,6 +97,8 @@ static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
 extern const stm32_dev_t devices[];
 
+int flash_addr_to_page_ceil(uint32_t addr);
+
 static void stm32_warn_stretching(const char *f)
 {
 	fprintf(stderr, "Attention !!!\n");
@@ -855,7 +857,7 @@ stm32_err_t stm32_erase_memory(const stm32_t *stm, uint32_t spage, uint32_t page
 		if (!(stm->dev->flags & F_NO_ME))
 			return stm32_mass_erase(stm);
 
-		pages = 0xF8; /* works for the STM32L152RB with 128Kb flash */
+		pages = flash_addr_to_page_ceil(stm->dev->fl_end);
 	}
 
 	/*
