@@ -61,6 +61,7 @@ struct stm32_dev {
 	uint32_t	*fl_ps;  // page size
 	uint32_t	opt_start, opt_end;
 	uint32_t	mem_start, mem_end;
+	uint32_t	flags;
 };
 
 stm32_t *stm32_init(struct port_interface *port, const char init);
