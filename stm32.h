@@ -37,6 +37,10 @@ typedef enum {
 	STM32_ERR_NO_CMD,	/* Command not available in bootloader */
 } stm32_err_t;
 
+typedef enum {
+	F_NO_ME = 1 << 0,	/* Mass-Erase not supported */
+} flags_t;
+
 typedef struct stm32		stm32_t;
 typedef struct stm32_cmd	stm32_cmd_t;
 typedef struct stm32_dev	stm32_dev_t;
