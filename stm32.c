@@ -779,7 +779,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 			fprintf(stderr, "Erase failed.\n");
 			return STM32_ERR_UNKNOWN;
 		}
-		s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
+		s_err = stm32_get_ack_timeout(stm, pages * STM32_PAGEERASE_TIMEOUT);
 		if (s_err != STM32_ERR_OK) {
 			if (port->flags & PORT_STRETCH_W)
 				stm32_warn_stretching("erase");
