@@ -57,7 +57,7 @@
 
 #define STM32_RESYNC_TIMEOUT	35	/* seconds */
 #define STM32_MASSERASE_TIMEOUT	35	/* seconds */
-#define STM32_SECTERASE_TIMEOUT	5	/* seconds */
+#define STM32_PAGEERASE_TIMEOUT	5	/* seconds */
 #define STM32_BLKWRITE_TIMEOUT	1	/* seconds */
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
 #define STM32_WPROT_TIMEOUT	1	/* seconds */
@@ -817,7 +817,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 		return STM32_ERR_UNKNOWN;
 	}
 
-	s_err = stm32_get_ack_timeout(stm, pages * STM32_SECTERASE_TIMEOUT);
+	s_err = stm32_get_ack_timeout(stm, pages * STM32_PAGEERASE_TIMEOUT);
 	if (s_err != STM32_ERR_OK) {
 		fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
 		if (port->flags & PORT_STRETCH_W
