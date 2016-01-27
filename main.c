@@ -191,44 +191,12 @@ static uint32_t flash_page_to_addr(int page)
 	return addr;
 }
 
-/* returns the size of flash page "page" */
-static uint32_t flash_page_size(int page)
-{
-	uint32_t *psize;
-
-	psize = stm->dev->fl_ps;
-
-	while (page && psize[1]) {
-		psize++;
-		page--;
-	}
-
-	return psize[0];
-}
-
-/* returns 1 if the given buffer only contains 0xff bytes.
- *
- * Yes, this could be optimized to compare 4 bytes at once for example
- * (NB: alignment!), but this function isn't a bottleneck anyway...
- */
-static int buffer_is_0xff_only(uint8_t *buffer, uint32_t len)
-{
-	uint32_t i;
-
-	for (i = 0; i < len; i++)
-		if (buffer[i] != 0xff)
-			return 0;
-
-	return 1;
-}
-
 int main(int argc, char* argv[]) {
 	struct port_interface *port = NULL;
 	int ret = 1;
 	stm32_err_t s_err;
 	parser_err_t perr;
 	FILE *diag = stdout;
-	uint8_t *page_data = NULL;
 
 	fprintf(diag, "stm32flash " VERSION "\n\n");
 	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
@@ -454,7 +422,6 @@ int main(int argc, char* argv[]) {
 		ssize_t r;
 		unsigned int size;
 		unsigned int max_wlen, max_rlen;
-		uint32_t allocated_page_len = 0;
 
 		max_wlen = port_opts.tx_frame_max - 2;	/* skip len and crc */
 		max_wlen &= ~3;	/* 32 bit aligned */
@@ -489,43 +456,14 @@ int main(int argc, char* argv[]) {
 		fflush(diag);
 		addr = start;
 		while(addr < end && offset < size) {
-			int page_number;
-			uint32_t page_size, page_len;
-
-			/* Find out the page number that we are going to
-			 * program next along with its size.
-			 */
-			page_number = flash_addr_to_page_floor(addr);
-			page_size = flash_page_size(page_number);
-
 			uint32_t left	= end - addr;
+			len		= max_wlen > left ? left : max_wlen;
+			len		= len > size - offset ? size - offset : len;
 
-			/* page_len will hold the actual number of bytes to program
-			 * in this page. This should only be different from page_size
-			 * when we reach the end of the data to program.
-			 */
-			page_len	= page_size > left ? left : page_size;
-			page_len	= page_len > size - offset ? size - offset : page_len;
-
-			/* Prepare a buffer to hold the data that will be written to
-			 * this page. Note that we only allocate a new buffer if the
-			 * one that we used previously is too small.
-			 */
-			if (!page_data || page_len > allocated_page_len) {
-				free(page_data);
-				page_data = malloc(page_len);
-				allocated_page_len = page_len;
-			}
-
-			if (!page_data) {
-				fprintf(stderr, "Failed to allocate %u bytes.\n", page_len);
-				goto close;
-			}
-
-			if (parser->read(p_st, page_data, &page_len) != PARSER_ERR_OK)
+			if (parser->read(p_st, buffer, &len) != PARSER_ERR_OK)
 				goto close;
 
-			if (page_len == 0) {
+			if (len == 0) {
 				if (filename[0] == '-') {
 					break;
 				} else {
@@ -533,80 +471,58 @@ int main(int argc, char* argv[]) {
 					goto close;
 				}
 			}
-
-			/* If this page has already been erased, we can
-			 * skip programming if the new data is all 0xff.
-			 */
-			if (!no_erase && num_pages > page_number) {
-				if (buffer_is_0xff_only(page_data, page_len)) {
-					addr	+= page_len;
-					offset	+= page_len;
-					continue;
-				}
+	
+			again:
+			s_err = stm32_write_memory(stm, addr, buffer, len);
+			if (s_err != STM32_ERR_OK) {
+				fprintf(stderr, "Failed to write memory at address 0x%08x\n", addr);
+				goto close;
 			}
 
-			uint32_t left_in_page = page_len;
-			uint32_t block_offset = 0;
+			if (verify) {
+				uint8_t compare[len];
+				unsigned int offset, rlen;
 
-			/* Now program the page's data in the chunk size that was
-			 * previously chosen.
-			 */
-			while (left_in_page > 0) {
-				len	= max_wlen > left_in_page ? left_in_page : max_wlen;
-
-again:
-				s_err = stm32_write_memory(stm, addr, &page_data[block_offset], len);
-				if (s_err != STM32_ERR_OK) {
-					fprintf(stderr, "Failed to write memory at address 0x%08x\n", addr);
-					goto close;
+				offset = 0;
+				while (offset < len) {
+					rlen = len - offset;
+					rlen = rlen < max_rlen ? rlen : max_rlen;
+					s_err = stm32_read_memory(stm, addr + offset, compare + offset, rlen);
+					if (s_err != STM32_ERR_OK) {
+						fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr + offset);
+						goto close;
+					}
+					offset += rlen;
 				}
 
-				if (verify) {
-					uint8_t compare[len];
-					unsigned int offset, rlen;
-
-					offset = 0;
-					while (offset < len) {
-						rlen = len - offset;
-						rlen = rlen < max_rlen ? rlen : max_rlen;
-						s_err = stm32_read_memory(stm, addr + offset, compare + offset, rlen);
-						if (s_err != STM32_ERR_OK) {
-							fprintf(stderr, "Failed to read memory at address 0x%08x\n", addr + offset);
+				for(r = 0; r < len; ++r)
+					if (buffer[r] != compare[r]) {
+						if (failed == retry) {
+							fprintf(stderr, "Failed to verify at address 0x%08x, expected 0x%02x and found 0x%02x\n",
+								(uint32_t)(addr + r),
+								buffer [r],
+								compare[r]
+							);
 							goto close;
 						}
-						offset += rlen;
+						++failed;
+						goto again;
 					}
 
-					for(r = 0; r < len; ++r)
-						if (page_data[block_offset + r] != compare[r]) {
-							if (failed == retry) {
-								fprintf(stderr, "Failed to verify at address 0x%08x, expected 0x%02x and found 0x%02x\n",
-								        (uint32_t)(addr + r),
-								        page_data[block_offset + r],
-								        compare[r]
-								);
-								goto close;
-							}
-							++failed;
-							goto again;
-						}
-
-					failed = 0;
-				}
-
-				addr		+= len;
-				offset		+= len;
-				left_in_page	-= len;
-				block_offset	+= len;
-
-				fprintf(diag,
-				        "\rWrote %saddress 0x%08x (%.2f%%) ",
-				        verify ? "and verified " : "",
-				        addr,
-				        (100.0f / size) * offset
-				);
-				fflush(diag);
+				failed = 0;
 			}
+
+			addr	+= len;
+			offset	+= len;
+
+			fprintf(diag,
+				"\rWrote %saddress 0x%08x (%.2f%%) ",
+				verify ? "and verified " : "",
+				addr,
+				(100.0f / size) * offset
+			);
+			fflush(diag);
+
 		}
 
 		fprintf(diag,	"Done.\n");
@@ -630,9 +546,6 @@ again:
 		ret = 0;
 
 close:
-	free(page_data);
-	page_data = NULL;
-
 	if (stm && exec_flag && ret == 0) {
 		if (execute == 0)
 			execute = stm->dev->fl_start;
