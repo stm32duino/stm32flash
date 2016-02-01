@@ -880,7 +880,7 @@ static stm32_err_t stm32_run_raw_code(const stm32_t *stm,
 				      const uint8_t *code, uint32_t code_size)
 {
 	uint32_t stack_le = le_u32(0x20002000);
-	uint32_t code_address_le = le_u32(target_address + 8);
+	uint32_t code_address_le = le_u32(target_address + 8 + 1); // thumb mode address (!)
 	uint32_t length = code_size + 8;
 	uint8_t *mem, *pos;
 	uint32_t address, w;
