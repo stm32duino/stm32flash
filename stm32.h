@@ -39,6 +39,7 @@ typedef enum {
 
 typedef enum {
 	F_NO_ME = 1 << 0,	/* Mass-Erase not supported */
+	F_OBLL  = 1 << 1,	/* OBL_LAUNCH required */
 } flags_t;
 
 typedef struct stm32		stm32_t;

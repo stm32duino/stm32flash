@@ -95,6 +95,28 @@ static const uint8_t stm_reset_code[] = {
 
 static const uint32_t stm_reset_code_length = sizeof(stm_reset_code);
 
+/* RM0360, Empty check
+ * On STM32F070x6 and STM32F030xC devices only, internal empty check flag is
+ * implemented to allow easy programming of the virgin devices by the boot loader. This flag is
+ * used when BOOT0 pin is defining Main Flash memory as the target boot space. When the
+ * flag is set, the device is considered as empty and System memory (boot loader) is selected
+ * instead of the Main Flash as a boot space to allow user to program the Flash memory.
+ * This flag is updated only during Option bytes loading: it is set when the content of the
+ * address 0x08000 0000 is read as 0xFFFF FFFF, otherwise it is cleared. It means a power
+ * on or setting of OBL_LAUNCH bit in FLASH_CR register is needed to clear this flag after
+ * programming of a virgin device to execute user code after System reset.
+ */
+static const uint8_t stm_obl_launch_code[] = {
+	0x01, 0x49,		// ldr     r1, [pc, #4] ; (<FLASH_CR>)
+	0x02, 0x4A,		// ldr     r2, [pc, #8] ; (<OBL_LAUNCH>)
+	0x0A, 0x60,		// str     r2, [r1, #0]
+	0xfe, 0xe7,		// endless: b endless
+	0x10, 0x20, 0x02, 0x40, // address: FLASH_CR = 40022010
+	0x00, 0x20, 0x00, 0x00  // value: OBL_LAUNCH = 00002000
+};
+
+static const uint32_t stm_obl_launch_code_length = sizeof(stm_obl_launch_code);
+
 extern const stm32_dev_t devices[];
 
 int flash_addr_to_page_ceil(uint32_t addr);
@@ -947,7 +969,12 @@ stm32_err_t stm32_reset_device(const stm32_t *stm)
 {
 	uint32_t target_address = stm->dev->ram_start;
 
-	return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
+	if (stm->dev->flags & F_OBLL) {
+		/* set the OBL_LAUNCH bit to reset device (see RM0360, 2.5) */
+		return stm32_run_raw_code(stm, target_address, stm_obl_launch_code, stm_obl_launch_code_length);
+	} else {
+		return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
+	}
 }
 
 stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
