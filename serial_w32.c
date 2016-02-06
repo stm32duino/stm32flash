@@ -77,6 +77,9 @@ static serial_t *serial_open(const char *device)
 
 	SetCommMask(h->fd, EV_ERR); /* Notify us of error events */
 
+	/* DCBlength should be initialized before calling GetCommState */
+	h->oldtio.DCBlength = sizeof(DCB);
+	h->newtio.DCBlength = sizeof(DCB);
 	GetCommState(h->fd, &h->oldtio); /* Retrieve port parameters */
 	GetCommState(h->fd, &h->newtio); /* Retrieve port parameters */
 
@@ -162,10 +165,15 @@ static port_err_t serial_setup(serial_t *h,
 	/* reset the settings */
 	h->newtio.fOutxCtsFlow = FALSE;
 	h->newtio.fOutxDsrFlow = FALSE;
+	h->newtio.fDtrControl = DTR_CONTROL_DISABLE;
+	h->newtio.fDsrSensitivity = FALSE;
+	h->newtio.fTXContinueOnXoff = FALSE;
 	h->newtio.fOutX = FALSE;
 	h->newtio.fInX = FALSE;
-	h->newtio.fNull = 0;
-	h->newtio.fAbortOnError = 0;
+	h->newtio.fErrorChar = FALSE;
+	h->newtio.fNull = FALSE;
+	h->newtio.fRtsControl = RTS_CONTROL_DISABLE;
+	h->newtio.fAbortOnError = FALSE;
 
 	/* set the settings */
 	serial_flush(h);
