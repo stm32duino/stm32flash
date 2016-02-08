@@ -40,6 +40,32 @@ struct gpio_list {
 	int exported; /* 0 if gpio should be unexported. */
 };
 
+static int write_to(const char *filename, const char *value)
+{
+	int fd, ret;
+
+	fd = open(filename, O_WRONLY);
+	if (fd < 0) {
+		fprintf(stderr, "Cannot open file \"%s\"\n", filename);
+		return 0;
+	}
+	ret = write(fd, value, strlen(value));
+	if (ret < 0) {
+		fprintf(stderr, "Error writing in file \"%s\"\n", filename);
+		close(fd);
+		return 0;
+	}
+	close(fd);
+	return 1;
+}
+
+#if !defined(__linux__)
+static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
+{
+	fprintf(stderr, "GPIO control only available in Linux\n");
+	return 0;
+}
+#else
 static int read_from(const char *filename, char *buf, size_t len)
 {
 	int fd, ret;
@@ -67,32 +93,6 @@ static int read_from(const char *filename, char *buf, size_t len)
 	return n;
 }
 
-static int write_to(const char *filename, const char *value)
-{
-	int fd, ret;
-
-	fd = open(filename, O_WRONLY);
-	if (fd < 0) {
-		fprintf(stderr, "Cannot open file \"%s\"\n", filename);
-		return 0;
-	}
-	ret = write(fd, value, strlen(value));
-	if (ret < 0) {
-		fprintf(stderr, "Error writing in file \"%s\"\n", filename);
-		close(fd);
-		return 0;
-	}
-	close(fd);
-	return 1;
-}
-
-#if !defined(__linux__)
-static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
-{
-	fprintf(stderr, "GPIO control only available in Linux\n");
-	return 0;
-}
-#else
 static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 {
 	char num[16]; /* sized to carry MAX_INT */
