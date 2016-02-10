@@ -841,7 +841,7 @@ void show_help(char *name) {
 		"	GPIO sequence:\n"
 		"	- entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high\n"
 		"	- exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high\n"
-		"		%s -i -3,-2,2:3,-2,2 /dev/ttyS0\n",
+		"		%s -R -i -3,-2,2:3,-2,2 /dev/ttyS0\n",
 		name,
 		name,
 		name,
