@@ -129,8 +129,8 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 
 	switch (parity) {
 		case SERIAL_PARITY_NONE: port_parity = 0; break;
-		case SERIAL_PARITY_EVEN: port_parity = INPCK | PARENB; break;
-		case SERIAL_PARITY_ODD:  port_parity = INPCK | PARENB | PARODD; break;
+		case SERIAL_PARITY_EVEN: port_parity = PARENB; break;
+		case SERIAL_PARITY_ODD:  port_parity = PARENB | PARODD; break;
 
 		default:
 			return PORT_ERR_UNKNOWN;
@@ -174,6 +174,8 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		port_stop	|
 		CLOCAL		|
 		CREAD;
+	if ( port_parity != 0 )
+		h->newtio.c_iflag |= INPCK;
 
 	h->newtio.c_cc[VMIN] = 0;
 	h->newtio.c_cc[VTIME] = 5;	/* in units of 0.1 s */
