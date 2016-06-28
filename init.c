@@ -40,6 +40,7 @@ struct gpio_list {
 	int exported; /* 0 if gpio should be unexported. */
 };
 
+#if defined(__linux__)
 static int write_to(const char *filename, const char *value)
 {
 	int fd, ret;
@@ -59,13 +60,6 @@ static int write_to(const char *filename, const char *value)
 	return 1;
 }
 
-#if !defined(__linux__)
-static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
-{
-	fprintf(stderr, "GPIO control only available in Linux\n");
-	return 0;
-}
-#else
 static int read_from(const char *filename, char *buf, size_t len)
 {
 	int fd, ret;
@@ -142,7 +136,6 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 
 	return write_to(file, level ? "high" : "low");
 }
-#endif
 
 static int release_gpio(int n, int input, int exported)
 {
@@ -159,10 +152,20 @@ static int release_gpio(int n, int input, int exported)
 
 	return 1;
 }
+#else
+static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
+{
+	fprintf(stderr, "GPIO control only available in Linux\n");
+	return 0;
+}
+#endif
 
 static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 {
-	struct gpio_list *gpio_to_release = NULL, *to_free;
+	struct gpio_list *gpio_to_release = NULL;
+#if defined(__linux__)
+	struct gpio_list *to_free;
+#endif
 	int ret, level, gpio;
 
 	ret = 1;
@@ -214,13 +217,14 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 			ret = drive_gpio(gpio, level, &gpio_to_release);
 		usleep(100000);
 	}
-
+#if defined(__linux__)
 	while (gpio_to_release) {
 		release_gpio(gpio_to_release->gpio, gpio_to_release->input, gpio_to_release->exported);
 		to_free = gpio_to_release;
 		gpio_to_release = gpio_to_release->next;
 		free(to_free);
 	}
+#endif
 	usleep(500000);
 	return ret;
 }
