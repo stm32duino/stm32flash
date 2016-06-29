@@ -27,5 +27,6 @@
 
 int init_bl_entry(struct port_interface *port, const char *seq);
 int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq);
+int gpio_bl_exit(struct port_interface *port, const char *seq);
 
 #endif

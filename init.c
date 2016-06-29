@@ -243,7 +243,7 @@ static int gpio_bl_entry(struct port_interface *port, const char *seq)
 	return gpio_sequence(port, seq, s - seq);
 }
 
-static int gpio_bl_exit(struct port_interface *port, const char *seq)
+int gpio_bl_exit(struct port_interface *port, const char *seq)
 {
 	char *s;
 

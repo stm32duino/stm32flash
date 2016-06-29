@@ -241,7 +241,10 @@ Note: the string "\-brk" has no effect and is ignored.
 .PD
 
 .P
-Note that the exit sequence is only executed if -R is specified. If -R is specified, but no exit sequence, a software-triggered reset will be performed.
+Note that since version 0.6, an exit sequence will always be executed if
+specified, regardless of the -R option, to ensure the signals are reset.
+If -R is specified, but no exit sequence, a software-triggered reset will
+be performed.
 
 .PD 0
 As example, let's suppose the following connection between host and STM32:
@@ -267,7 +270,7 @@ The corresponding string for
 .I GPIO_string
 is "\-4,\-3,3".
 
-The complete command line flag is "\-R \-i 4,\-5,\-3,3:\-4,\-3,3".
+The complete command line flag is "\-i 4,\-5,\-3,3:\-4,\-3,3".
 
 STM32W uses pad PA5 to select boot mode; if during reset PA5 is "low" then
 STM32W will enter in bootloader mode; if PA5 is "high" it will execute the
@@ -277,7 +280,7 @@ As example, supposing GPIO_3 connected to PA5 and GPIO_2 to STM32W's reset.
 The command:
 .PD 0
 .RS
-stm32flash \-R \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
+stm32flash \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
 .RE
 provides:
 .IP \(bu 2
@@ -327,7 +330,7 @@ entry sequence: RTS=low, DTR=low, DTR=high
 exit sequence: RTS=high, DTR=low, DTR=high
 .P
 .RS
-stm32flash \-R \-i \-rts,\-dtr,dtr:rts,\-dtr,dtr /dev/ttyS0
+stm32flash \-i \-rts,\-dtr,dtr:rts,\-dtr,dtr /dev/ttyS0
 .PD
 .RE
 
