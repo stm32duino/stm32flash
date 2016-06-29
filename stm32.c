@@ -606,7 +606,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 
 	s_err = stm32_get_ack_timeout(stm, STM32_BLKWRITE_TIMEOUT);
 	if (s_err != STM32_ERR_OK) {
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->wm != STM32_CMD_WM_NS)
 			stm32_warn_stretching("write");
 		return STM32_ERR_UNKNOWN;
@@ -633,7 +633,7 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 	if (s_err != STM32_ERR_OK) {
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->uw != STM32_CMD_UW_NS)
 			stm32_warn_stretching("WRITE UNPROTECT");
 		return STM32_ERR_UNKNOWN;
@@ -660,7 +660,7 @@ stm32_err_t stm32_wprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 	if (s_err != STM32_ERR_OK) {
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->wp != STM32_CMD_WP_NS)
 			stm32_warn_stretching("WRITE PROTECT");
 		return STM32_ERR_UNKNOWN;
@@ -687,7 +687,7 @@ stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 	if (s_err != STM32_ERR_OK) {
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->ur != STM32_CMD_UR_NS)
 			stm32_warn_stretching("READOUT UNPROTECT");
 		return STM32_ERR_UNKNOWN;
@@ -714,7 +714,7 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 	if (s_err != STM32_ERR_OK) {
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->rp != STM32_CMD_RP_NS)
 			stm32_warn_stretching("READOUT PROTECT");
 		return STM32_ERR_UNKNOWN;
@@ -755,7 +755,7 @@ static stm32_err_t stm32_mass_erase(const stm32_t *stm)
 	s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
 	if (s_err != STM32_ERR_OK) {
 		fprintf(stderr, "Mass erase failed. Try specifying the number of pages to be erased.\n");
-	if (port->flags & PORT_STRETCH_W
+	if ((port->flags & PORT_STRETCH_W)
 	    && stm->cmd->er != STM32_CMD_EE_NS)
 		stm32_warn_stretching("mass erase");
 		return STM32_ERR_UNKNOWN;
@@ -842,7 +842,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 	s_err = stm32_get_ack_timeout(stm, pages * STM32_PAGEERASE_TIMEOUT);
 	if (s_err != STM32_ERR_OK) {
 		fprintf(stderr, "Page-by-page erase failed. Check the maximum pages your device supports.\n");
-		if (port->flags & PORT_STRETCH_W
+		if ((port->flags & PORT_STRETCH_W)
 		    && stm->cmd->er != STM32_CMD_EE_NS)
 			stm32_warn_stretching("erase");
 		return STM32_ERR_UNKNOWN;
@@ -983,7 +983,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
-	if (address & 0x3 || length & 0x3) {
+	if ((address & 0x3) || (length & 0x3)) {
 		fprintf(stderr, "Start and end addresses must be 4 byte aligned\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -1076,7 +1076,7 @@ stm32_err_t stm32_crc_wrapper(const stm32_t *stm, uint32_t address,
 	uint8_t buf[256];
 	uint32_t start, total_len, len, current_crc;
 
-	if (address & 0x3 || length & 0x3) {
+	if ((address & 0x3) || (length & 0x3)) {
 		fprintf(stderr, "Start and end addresses must be 4 byte aligned\n");
 		return STM32_ERR_UNKNOWN;
 	}
