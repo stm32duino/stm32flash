@@ -382,13 +382,15 @@ int main(int argc, char* argv[]) {
 		fprintf(stdout, "Read-Protecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		stm32_readprot_memory(stm);
+		if(stm32_readprot_memory(stm) == STM32_ERR_OK)
+			ret = 0;
 		fprintf(stdout,	"Done.\n");
 	} else if (action == ACT_READ_UNPROTECT) {
 		fprintf(stdout, "Read-UnProtecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		stm32_runprot_memory(stm);
+		if(stm32_runprot_memory(stm) == STM32_ERR_OK)
+			ret = 0;
 		fprintf(stdout,	"Done.\n");
 	} else if (action == ACT_ERASE_ONLY) {
 		ret = 0;
@@ -412,7 +414,8 @@ int main(int argc, char* argv[]) {
 		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		stm32_wunprot_memory(stm);
+		if(stm32_wunprot_memory(stm) == STM32_ERR_OK)
+			ret = 0;
 		fprintf(diag,	"Done.\n");
 
 	} else if (action == ACT_WRITE) {
