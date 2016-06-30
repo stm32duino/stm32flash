@@ -31,6 +31,12 @@
 #include "serial.h"
 #include "port.h"
 
+#ifndef TERMIOS_TIMEOUT_MS
+#define TERMIOS_TIMEOUT_MS 500
+#endif
+
+#define TERMIOS_TIMEOUT ((TERMIOS_TIMEOUT_MS)/100)
+
 struct serial {
 	int fd;
 	struct termios oldtio;
@@ -178,7 +184,7 @@ static port_err_t serial_setup(serial_t *h, const serial_baud_t baud,
 		h->newtio.c_iflag |= INPCK;
 
 	h->newtio.c_cc[VMIN] = 0;
-	h->newtio.c_cc[VTIME] = 5;	/* in units of 0.1 s */
+	h->newtio.c_cc[VTIME] = TERMIOS_TIMEOUT;	/* in units of 0.1 s */
 
 	/* set the settings */
 	serial_flush(h);
