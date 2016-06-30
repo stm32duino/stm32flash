@@ -259,8 +259,11 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(diag, "Interface %s: %s\n", port->name, port->get_cfg_str(port));
-	if (init_flag && init_bl_entry(port, gpio_seq))
+	if (init_flag && init_bl_entry(port, gpio_seq)){
+		ret = 1;
+		fprintf(stderr, "Failed to send boot enter sequence\n");
 		goto close;
+	}
 
 	port->flush(port);
 
