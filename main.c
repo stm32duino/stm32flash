@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(diag, "Interface %s: %s\n", port->name, port->get_cfg_str(port));
-	if (init_flag && init_bl_entry(port, gpio_seq) == 0)
+	if (init_flag && init_bl_entry(port, gpio_seq))
 		goto close;
 	stm = stm32_init(port, init_flag);
 	if (!stm)

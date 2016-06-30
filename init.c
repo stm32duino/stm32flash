@@ -166,14 +166,13 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 #if defined(__linux__)
 	struct gpio_list *to_free;
 #endif
-	int ret, level, gpio;
+	int ret = 0, level, gpio;
 	int sleep_time = 0;
 	int delimiter = 0;
 	const char *sig_str = NULL;
 
 	fprintf(stdout, "\nGPIO sequence start\n");
-	ret = 1;
-	while (ret == 1 && *s && l > 0) {
+	while (ret == 0 && *s && l > 0) {
 		sig_str = NULL;
 		sleep_time = 0;
 		delimiter = 0;
@@ -226,12 +225,12 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 				l--;
 			} else {
 				fprintf(stderr, "Character \'%c\' is not a separator\n", *s);
-				ret = 0;
+				ret = 1;
 				break;
 			}
 		} else {
 			fprintf(stderr, "Character \'%c\' is not a digit\n", *s);
-			ret = 0;
+			ret = 1;
 			break;
 		}
 
@@ -239,10 +238,10 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 			if (gpio < 0) {
 				gpio = -gpio;
 				fprintf(stdout, " setting port signal %.3s to %i\n", sig_str, level);
-				ret = (port->gpio(port, gpio, level) == PORT_ERR_OK);
+				ret = (port->gpio(port, gpio, level) != PORT_ERR_OK);
 			} else {
 				fprintf(stdout, " setting gpio %i to %i\n", gpio, level);
-				ret = drive_gpio(gpio, level, &gpio_to_release);
+				ret = (drive_gpio(gpio, level, &gpio_to_release) != 1);
 			}
 		}
 
@@ -296,7 +295,7 @@ int init_bl_entry(struct port_interface *port, const char *seq)
 	if (seq)
 		return gpio_bl_entry(port, seq);
 
-	return 1;
+	return 0;
 }
 
 int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq)
