@@ -352,11 +352,24 @@ static const char *serial_posix_get_cfg_str(struct port_interface *port)
 	return h ? h->setup_str : "INVALID";
 }
 
+static port_err_t serial_posix_flush(struct port_interface *port)
+{
+	serial_t *h;
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	serial_flush(h);
+
+	return PORT_ERR_OK;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_posix",
 	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT | PORT_RETRY,
 	.open	= serial_posix_open,
 	.close	= serial_posix_close,
+	.flush  = serial_posix_flush,
 	.read	= serial_posix_read,
 	.write	= serial_posix_write,
 	.gpio	= serial_posix_gpio,

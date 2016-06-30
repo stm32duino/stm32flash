@@ -194,11 +194,18 @@ static struct varlen_cmd i2c_cmd_get_reply[] = {
 	{ /* sentinel */ }
 };
 
+static port_err_t i2c_flush(struct port_interface *port)
+{
+	/* We shouldn't need to flush I2C */
+	return PORT_ERR_OK;
+}
+
 struct port_interface port_i2c = {
 	.name	= "i2c",
 	.flags	= PORT_STRETCH_W,
 	.open	= i2c_open,
 	.close	= i2c_close,
+	.flush  = i2c_flush,
 	.read	= i2c_read,
 	.write	= i2c_write,
 	.gpio	= i2c_gpio,

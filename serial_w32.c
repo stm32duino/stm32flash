@@ -337,11 +337,24 @@ static const char *serial_w32_get_cfg_str(struct port_interface *port)
 	return h ? h->setup_str : "INVALID";
 }
 
+static port_err_t serial_w32_flush(struct port_interface *port)
+{
+	serial_t *h;
+	h = (serial_t *)port->private;
+	if (h == NULL)
+		return PORT_ERR_UNKNOWN;
+
+	serial_flush(h);
+
+	return PORT_ERR_OK;
+}
+
 struct port_interface port_serial = {
 	.name	= "serial_w32",
 	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT | PORT_RETRY,
 	.open	= serial_w32_open,
 	.close	= serial_w32_close,
+	.flush  = serial_w32_flush,
 	.read	= serial_w32_read,
 	.write	= serial_w32_write,
 	.gpio	= serial_w32_gpio,

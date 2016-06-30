@@ -261,6 +261,9 @@ int main(int argc, char* argv[]) {
 	fprintf(diag, "Interface %s: %s\n", port->name, port->get_cfg_str(port));
 	if (init_flag && init_bl_entry(port, gpio_seq))
 		goto close;
+
+	port->flush(port);
+
 	stm = stm32_init(port, init_flag);
 	if (!stm)
 		goto close;
@@ -570,7 +573,7 @@ close:
 			fprintf(diag, "Reset failed.\n");
 		} else
 			fprintf(diag, "Reset done.\n");
-	} else {
+	} else if (port) {
 		/* Always run exit sequence if present */
 		if (gpio_seq && strchr(gpio_seq, ':'))
 			ret = gpio_bl_exit(port, gpio_seq) || ret;
