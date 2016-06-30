@@ -303,7 +303,5 @@ int init_bl_exit(stm32_t *stm, struct port_interface *port, const char *seq)
 	if (seq && strchr(seq, ':'))
 		return gpio_bl_exit(port, seq);
 
-	if (stm32_reset_device(stm) != STM32_ERR_OK)
-		return 0;
-	return 1;
+	return stm32_reset_device(stm);
 }

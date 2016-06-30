@@ -563,11 +563,13 @@ close:
 	}
 
 	if (stm && reset_flag) {
-		fprintf(diag, "\nResetting device... ");
+		fprintf(diag, "\nResetting device... \n");
 		fflush(diag);
-		if (init_bl_exit(stm, port, gpio_seq))
-			fprintf(diag, "done.\n");
-		else	fprintf(diag, "failed.\n");
+		if (init_bl_exit(stm, port, gpio_seq)) {
+			ret = 1;
+			fprintf(diag, "Reset failed.\n");
+		} else
+			fprintf(diag, "Reset done.\n");
 	} else {
 		/* Always run exit sequence if present */
 		if (gpio_seq && strchr(gpio_seq, ':'))
