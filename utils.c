@@ -43,3 +43,10 @@ uint32_t le_u32(const uint32_t v) {
                         ((v & 0x000000FF) << 24);
         return v;
 }
+
+void printStatus(FILE *fd, int condition){
+	if(condition)
+		fprintf(fd, "Error!\n");
+	else
+		fprintf(fd, "OK\n");
+}
