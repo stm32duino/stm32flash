@@ -388,16 +388,24 @@ int main(int argc, char* argv[]) {
 		fprintf(stdout, "Read-Protecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		if(stm32_readprot_memory(stm) == STM32_ERR_OK)
-			ret = 0;
+		s_err = stm32_readprot_memory(stm);
+		if (s_err != STM32_ERR_OK) {
+			fprintf(stderr, "Failed to read-protect flash\n");
+			goto close;
+		}
 		fprintf(stdout,	"Done.\n");
+		ret = 0;
 	} else if (action == ACT_READ_UNPROTECT) {
 		fprintf(stdout, "Read-UnProtecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		if(stm32_runprot_memory(stm) == STM32_ERR_OK)
-			ret = 0;
+		s_err = stm32_runprot_memory(stm);
+		if (s_err != STM32_ERR_OK) {
+			fprintf(stderr, "Failed to read-unprotect flash\n");
+			goto close;
+		}
 		fprintf(stdout,	"Done.\n");
+		ret = 0;
 	} else if (action == ACT_ERASE_ONLY) {
 		ret = 0;
 		fprintf(stdout, "Erasing flash\n");
@@ -416,14 +424,18 @@ int main(int argc, char* argv[]) {
 			ret = 1;
 			goto close;
 		}
+		ret = 0;
 	} else if (action == ACT_WRITE_UNPROTECT) {
 		fprintf(diag, "Write-unprotecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
-		if(stm32_wunprot_memory(stm) == STM32_ERR_OK)
-			ret = 0;
+		s_err = stm32_wunprot_memory(stm);
+		if (s_err != STM32_ERR_OK) {
+			fprintf(stderr, "Failed to write-unprotect flash\n");
+			goto close;
+		}
 		fprintf(diag,	"Done.\n");
-
+		ret = 0;
 	} else if (action == ACT_WRITE) {
 		fprintf(diag, "Write to memory\n");
 
