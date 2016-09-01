@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <stdio.h>
+#include <sys/file.h>
 
 #include "serial.h"
 #include "port.h"
@@ -53,6 +54,13 @@ static serial_t *serial_open(const char *device)
 		free(h);
 		return NULL;
 	}
+
+	if(lockf(h->fd,F_TLOCK,0) != 0)
+	{
+		fprintf(stderr, "Error: %s is already open\n", device);
+		free(h);
+		return NULL;
+	}
 	fcntl(h->fd, F_SETFL, 0);
 
 	tcgetattr(h->fd, &h->oldtio);
@@ -70,6 +78,7 @@ static void serial_close(serial_t *h)
 {
 	serial_flush(h);
 	tcsetattr(h->fd, TCSANOW, &h->oldtio);
+	lockf(h->fd, F_ULOCK, 0);
 	close(h->fd);
 	free(h);
 }
