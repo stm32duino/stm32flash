@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "init.h"
 #include "utils.h"
@@ -38,13 +39,17 @@
 #include "parsers/binary.h"
 #include "parsers/hex.h"
 
+#if defined(__WIN32__) || defined(__CYGWIN__)
+#include <windows.h>
+#endif
+
 #define VERSION "0.5"
 
 /* device globals */
 stm32_t		*stm		= NULL;
-
 void		*p_st		= NULL;
 parser_t	*parser		= NULL;
+struct port_interface *port = NULL;
 
 /* settings */
 struct port_options port_opts = {
@@ -191,8 +196,27 @@ static uint32_t flash_page_to_addr(int page)
 	return addr;
 }
 
+
+#if defined(__WIN32__) || defined(__CYGWIN__)
+BOOL CtrlHandler( DWORD fdwCtrlType )
+{
+	printf("\nCaught signal %lu\n",fdwCtrlType);
+	if (p_st &&  parser ) parser->close(p_st);
+	if (stm  ) stm32_close  (stm);
+	if (port) port->close(port);
+	exit(1);
+}
+#else
+void sighandler(int s){
+	printf("\nCaught signal %d\n",s);
+	if (p_st &&  parser ) parser->close(p_st);
+	if (stm  ) stm32_close  (stm);
+	if (port) port->close(port);
+	exit(1);
+}
+#endif
+
 int main(int argc, char* argv[]) {
-	struct port_interface *port = NULL;
 	int ret = 1;
 	stm32_err_t s_err;
 	parser_err_t perr;
@@ -202,6 +226,18 @@ int main(int argc, char* argv[]) {
 	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
+
+#if defined(__WIN32__) || defined(__CYGWIN__)
+	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, TRUE );
+#else
+	struct sigaction sigIntHandler;
+
+	sigIntHandler.sa_handler = sighandler;
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+
+	sigaction(SIGINT, &sigIntHandler, NULL);
+#endif
 
 	if ((action == ACT_READ) && filename[0] == '-') {
 		diag = stderr;
@@ -461,7 +497,7 @@ int main(int argc, char* argv[]) {
 		// if ((start % stm->dev->fl_ps[i]) != 0 || (end % stm->dev->fl_ps[i]) != 0) {
 		//	fprintf(stderr, "Specified start & length are invalid (must be page aligned)\n");
 		//	goto close;
-		// } 
+		// }
 
 		// TODO: If writes are not page aligned, we should probably read out existing flash
 		//       contents first, so it can be preserved and combined with new data
@@ -492,7 +528,7 @@ int main(int argc, char* argv[]) {
 					goto close;
 				}
 			}
-	
+
 			again:
 			s_err = stm32_write_memory(stm, addr, buffer, len);
 			if (s_err != STM32_ERR_OK) {
