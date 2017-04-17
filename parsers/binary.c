@@ -39,7 +39,7 @@ void* binary_init() {
 parser_err_t binary_open(void *storage, const char *filename, const char write) {
 	binary_t *st = storage;
 	if (write) {
-		if (filename[0] == '-')
+		if (filename[0] == '-' && filename[1] == '\0')
 			st->fd = 1;
 		else
 			st->fd = open(
@@ -57,7 +57,7 @@ parser_err_t binary_open(void *storage, const char *filename, const char write) 
 			);
 		st->stat.st_size = 0;
 	} else {
-		if (filename[0] == '-') {
+		if (filename[0] == '-' && filename[1] == '\0') {
 			st->fd = 0;
 		} else {
 			if (stat(filename, &st->stat) != 0)

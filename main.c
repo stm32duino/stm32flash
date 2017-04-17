@@ -81,6 +81,7 @@ int		retry		= 10;
 char		exec_flag	= 0;
 uint32_t	execute		= 0;
 char		init_flag	= 1;
+int		use_stdinout	= 0;
 char		force_binary	= 0;
 char		reset_flag	= 0;
 char		*filename;
@@ -239,7 +240,7 @@ int main(int argc, char* argv[]) {
 	sigaction(SIGINT, &sigIntHandler, NULL);
 #endif
 
-	if ((action == ACT_READ) && filename[0] == '-') {
+	if (action == ACT_READ && use_stdinout) {
 		diag = stderr;
 	}
 
@@ -487,7 +488,7 @@ int main(int argc, char* argv[]) {
 		max_rlen = max_rlen < max_wlen ? max_rlen : max_wlen;
 
 		/* Assume data from stdin is whole device */
-		if (filename[0] == '-' && filename[1] == '\0')
+		if (use_stdinout)
 			size = end - start;
 		else
 			size = parser->size(p_st);
@@ -521,7 +522,7 @@ int main(int argc, char* argv[]) {
 				goto close;
 
 			if (len == 0) {
-				if (filename[0] == '-') {
+				if (use_stdinout) {
 					break;
 				} else {
 					fprintf(stderr, "Failed to read input file\n");
@@ -680,7 +681,8 @@ int parse_options(int argc, char *argv[])
 				}
 				action = (c == 'r') ? ACT_READ : ACT_WRITE;
 				filename = optarg;
-				if (filename[0] == '-') {
+				if (filename[0] == '-' && filename[1] == '\0') {
+					use_stdinout = 1;
 					force_binary = 1;
 				}
 				break;
