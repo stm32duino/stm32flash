@@ -161,7 +161,7 @@ static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
 }
 #endif
 
-static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
+static int gpio_sequence(struct port_interface *port, const char *seq, size_t len_seq)
 {
 	struct gpio_list *gpio_to_release = NULL;
 #if defined(__linux__)
@@ -171,6 +171,8 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 	int sleep_time = 0;
 	int delimiter = 0;
 	const char *sig_str = NULL;
+	const char *s = seq;
+	size_t l = len_seq;
 
 	fprintf(stdout, "\nGPIO sequence start\n");
 	while (ret == 0 && *s && l > 0) {
@@ -191,17 +193,17 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 				s++;
 				l--;
 			}
-		} else if (!strncmp(s, "rts", 3)) {
+		} else if (l >= 3 && !strncmp(s, "rts", 3)) {
 			sig_str = s;
 			gpio = -GPIO_RTS;
 			s += 3;
 			l -= 3;
-		} else if (!strncmp(s, "dtr", 3)) {
+		} else if (l >= 3 && !strncmp(s, "dtr", 3)) {
 			sig_str = s;
 			gpio = -GPIO_DTR;
 			s += 3;
 			l -= 3;
-		} else if (!strncmp(s, "brk", 3)) {
+		} else if (l >= 3 && !strncmp(s, "brk", 3)) {
 			sig_str = s;
 			gpio = -GPIO_BRK;
 			s += 3;
@@ -225,12 +227,13 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 				s++;
 				l--;
 			} else {
-				fprintf(stderr, "Character \'%c\' is not a separator\n", *s);
+				fprintf(stderr, "Character \'%c\' is not a valid signal or separator\n", *s);
 				ret = 1;
 				break;
 			}
 		} else {
-			fprintf(stderr, "Character \'%c\' is not a digit\n", *s);
+			/* E.g. modifier without signal */
+			fprintf(stderr, "Invalid sequence %.*s\n", (int) len_seq, seq);
 			ret = 1;
 			break;
 		}
