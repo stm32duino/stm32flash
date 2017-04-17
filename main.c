@@ -223,10 +223,15 @@ int main(int argc, char* argv[]) {
 	parser_err_t perr;
 	FILE *diag = stdout;
 
-	fprintf(diag, "stm32flash " VERSION "\n\n");
-	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
 	if (parse_options(argc, argv) != 0)
 		goto close;
+
+	if (action == ACT_READ && use_stdinout) {
+		diag = stderr;
+	}
+
+	fprintf(diag, "stm32flash " VERSION "\n\n");
+	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
 	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, TRUE );
@@ -239,10 +244,6 @@ int main(int argc, char* argv[]) {
 
 	sigaction(SIGINT, &sigIntHandler, NULL);
 #endif
-
-	if (action == ACT_READ && use_stdinout) {
-		diag = stderr;
-	}
 
 	if (action == ACT_WRITE) {
 		/* first try hex */
