@@ -83,6 +83,7 @@ uint32_t	execute		= 0;
 char		init_flag	= 1;
 int		use_stdinout	= 0;
 char		force_binary	= 0;
+FILE		*diag;
 char		reset_flag	= 0;
 char		*filename;
 char		*gpio_seq	= NULL;
@@ -201,7 +202,7 @@ static uint32_t flash_page_to_addr(int page)
 #if defined(__WIN32__) || defined(__CYGWIN__)
 BOOL CtrlHandler( DWORD fdwCtrlType )
 {
-	printf("\nCaught signal %lu\n",fdwCtrlType);
+	fprintf(stderr, "\nCaught signal %lu\n",fdwCtrlType);
 	if (p_st &&  parser ) parser->close(p_st);
 	if (stm  ) stm32_close  (stm);
 	if (port) port->close(port);
@@ -209,7 +210,7 @@ BOOL CtrlHandler( DWORD fdwCtrlType )
 }
 #else
 void sighandler(int s){
-	printf("\nCaught signal %d\n",s);
+	fprintf(stderr, "\nCaught signal %d\n",s);
 	if (p_st &&  parser ) parser->close(p_st);
 	if (stm  ) stm32_close  (stm);
 	if (port) port->close(port);
@@ -221,7 +222,7 @@ int main(int argc, char* argv[]) {
 	int ret = 1;
 	stm32_err_t s_err;
 	parser_err_t perr;
-	FILE *diag = stdout;
+	diag = stdout;
 
 	if (parse_options(argc, argv) != 0)
 		goto close;
@@ -423,7 +424,7 @@ int main(int argc, char* argv[]) {
 		ret = 0;
 		goto close;
 	} else if (action == ACT_READ_PROTECT) {
-		fprintf(stdout, "Read-Protecting flash\n");
+		fprintf(diag, "Read-Protecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		s_err = stm32_readprot_memory(stm);
@@ -431,10 +432,10 @@ int main(int argc, char* argv[]) {
 			fprintf(stderr, "Failed to read-protect flash\n");
 			goto close;
 		}
-		fprintf(stdout,	"Done.\n");
+		fprintf(diag,	"Done.\n");
 		ret = 0;
 	} else if (action == ACT_READ_UNPROTECT) {
-		fprintf(stdout, "Read-UnProtecting flash\n");
+		fprintf(diag, "Read-UnProtecting flash\n");
 		/* the device automatically performs a reset after the sending the ACK */
 		reset_flag = 0;
 		s_err = stm32_runprot_memory(stm);
@@ -442,11 +443,11 @@ int main(int argc, char* argv[]) {
 			fprintf(stderr, "Failed to read-unprotect flash\n");
 			goto close;
 		}
-		fprintf(stdout,	"Done.\n");
+		fprintf(diag,	"Done.\n");
 		ret = 0;
 	} else if (action == ACT_ERASE_ONLY) {
 		ret = 0;
-		fprintf(stdout, "Erasing flash\n");
+		fprintf(diag, "Erasing flash\n");
 
 		if (num_pages != STM32_MASS_ERASE &&
 		    (start != flash_page_to_addr(first_page)
