@@ -226,7 +226,7 @@ The format of
 .RS
 GPIO_string = [entry sequence][:[exit sequence]]
 .P
-sequence = [\-]n[,sequence]
+sequence = [[\-]signal]&|,[sequence]
 .RE
 .PD
 .P
@@ -239,7 +239,15 @@ The string "brk" forces the UART to send a BREAK sequence on TX line;
 after BREAK the UART is returned in normal "non\-break" mode.
 Note: the string "\-brk" has no effect and is ignored.
 .PD
-
+.P
+The ',' delimiter adds 100 ms of delay between signal toggles, whereas
+the '&' delimiter adds no delay.
+An empty signal, thus repeated ',' delimiters, can be used to insert larger
+delays in multiples of 100 ms.
+E.g. "rts,,,,\-dtr" will set RTS, then wait 400 ms, then reset DTR.
+"rts&\-dtr" will set RTS and reset DTR without delay. You can use ',' delimiters 
+alone to simply add a delay between opening port and starting to flash.
+.DP
 .P
 Note that since version 0.6, an exit sequence will always be executed if
 specified, regardless of the -R option, to ensure the signals are reset.
@@ -280,14 +288,29 @@ As example, supposing GPIO_3 connected to PA5 and GPIO_2 to STM32W's reset.
 The command:
 .PD 0
 .RS
-stm32flash \-i \-3,\-2,2:3,\-2,2 /dev/ttyS0
+stm32flash \-i '\-3&\-2,2:3&\-2,,,2' /dev/ttyS0
 .RE
 provides:
 .IP \(bu 2
-entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high
+entry sequence: GPIO_3=low, GPIO_2=low, 100 ms delay, GPIO_2=high
 .IP \(bu 2
-exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high
+exit sequence: GPIO_3=high, GPIO_2=low, 300 ms delay, GPIO_2=high
 .PD
+
+
+GPIO sequence to bring delays on start after port opening.
+The command:
+.PD 0
+.RS
+stm32flash \-i ',,,,,:rts&\-dtr,,,2' /dev/ttyS0\n",
+.RE
+provides:
+.IP \(bu 2
+entry sequence: delay 500 ms
+.IP \(bu 2
+exit sequence: RTS=high, DTR=low, 300 ms delay, GPIO_2=high
+.PD
+
 
 .SH EXAMPLES
 Get device information:

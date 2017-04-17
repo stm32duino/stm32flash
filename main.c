@@ -822,10 +822,20 @@ void show_help(char *name) {
 		"	-c		Resume the connection (don't send initial INIT)\n"
 		"			*Baud rate must be kept the same as the first init*\n"
 		"			This is useful if the reset fails\n"
+		"	-R		Reset device at exit.\n"
 		"	-i GPIO_string	GPIO sequence to enter/exit bootloader mode\n"
 		"			GPIO_string=[entry_seq][:[exit_seq]]\n"
-		"			sequence=[-]n[,sequence]\n"
-		"	-R		Reset device at exit.\n"
+		"			sequence=[[-]signal]&|,[sequence]\n"
+		"\n"
+		"GPIO sequence:\n"
+		"	The following signals can appear in a sequence:\n"
+		"	  Integer number representing GPIO pin\n"
+		"	  'dtr', 'rts' or 'brk' representing serial port signal\n"
+		"	The sequence can use the following delimiters:\n"
+		"	  ',' adds 100 ms delay between signals\n"
+		"	  '&' adds no delay between signals\n"
+		"	The following modifiers can be prepended to a signal:\n"
+		"	  '-' reset signal (low) instead of setting it (high)\n"
 		"\n"
 		"Examples:\n"
 		"	Get device information:\n"
@@ -846,9 +856,14 @@ void show_help(char *name) {
 		"		%s -g 0x0 /dev/ttyS0\n"
 		"\n"
 		"	GPIO sequence:\n"
-		"	- entry sequence: GPIO_3=low, GPIO_2=low, GPIO_2=high\n"
-		"	- exit sequence: GPIO_3=high, GPIO_2=low, GPIO_2=high\n"
-		"		%s -R -i -3,-2,2:3,-2,2 /dev/ttyS0\n",
+		"	- entry sequence: GPIO_3=low, GPIO_2=low, 100ms delay, GPIO_2=high\n"
+		"	- exit sequence: GPIO_3=high, GPIO_2=low, 300ms delay, GPIO_2=high\n"
+		"		%s -i '-3&-2,2:3&-2,,,2' /dev/ttyS0\n"
+		"	GPIO sequence adding delay after port opening:\n"
+		"	- entry sequence: delay 500ms\n"
+		"	- exit sequence: rts=high, dtr=low, 300ms delay, GPIO_2=high\n"
+		"		%s -R -i ',,,,,:rts&-dtr,,,2' /dev/ttyS0\n",
+		name,
 		name,
 		name,
 		name,

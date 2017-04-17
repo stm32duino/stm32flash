@@ -167,9 +167,17 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 	struct gpio_list *to_free;
 #endif
 	int ret, level, gpio;
+	int sleep_time = 0;
+	int delimiter = 0;
+	const char *sig_str = NULL;
 
+	fprintf(stdout, "\nGPIO sequence start\n");
 	ret = 1;
 	while (ret == 1 && *s && l > 0) {
+		sig_str = NULL;
+		sleep_time = 0;
+		delimiter = 0;
+
 		if (*s == '-') {
 			level = 0;
 			s++;
@@ -184,25 +192,36 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 				l--;
 			}
 		} else if (!strncmp(s, "rts", 3)) {
+			sig_str = s;
 			gpio = -GPIO_RTS;
 			s += 3;
 			l -= 3;
 		} else if (!strncmp(s, "dtr", 3)) {
+			sig_str = s;
 			gpio = -GPIO_DTR;
 			s += 3;
 			l -= 3;
 		} else if (!strncmp(s, "brk", 3)) {
+			sig_str = s;
 			gpio = -GPIO_BRK;
 			s += 3;
 			l -= 3;
-		} else {
-			fprintf(stderr, "Character \'%c\' is not a digit\n", *s);
-			ret = 0;
-			break;
-		}
-
-		if (*s && (l > 0)) {
+		} else if (*s && (l > 0)) {
+			delimiter = 1;
+			/* The ',' delimiter adds a 100 ms delay between signal toggles.
+			 * i.e -rts,dtr will reset rts, wait 100 ms, set dtr.
+			 *
+			 * The '&' delimiter adds no delay between signal toggles.
+			 * i.e -rts&dtr will reset rts and immediately set dtr.
+			 *
+			 * Example: -rts&dtr,,,rts,-dtr will reset rts and set dtr
+			 * without delay, then wait 300 ms, set rts, wait 100 ms, reset dtr.
+			 */
 			if (*s == ',') {
+				s++;
+				l--;
+				sleep_time = 100000;
+			} else if (*s == '&') {
 				s++;
 				l--;
 			} else {
@@ -210,12 +229,27 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 				ret = 0;
 				break;
 			}
+		} else {
+			fprintf(stderr, "Character \'%c\' is not a digit\n", *s);
+			ret = 0;
+			break;
 		}
-		if (gpio < 0)
-			ret = (port->gpio(port, -gpio, level) == PORT_ERR_OK);
-		else
-			ret = drive_gpio(gpio, level, &gpio_to_release);
-		usleep(100000);
+
+		if (!delimiter) { /* actual gpio/port signal driving */
+			if (gpio < 0) {
+				gpio = -gpio;
+				fprintf(stdout, " setting port signal %.3s to %i\n", sig_str, level);
+				ret = (port->gpio(port, gpio, level) == PORT_ERR_OK);
+			} else {
+				fprintf(stdout, " setting gpio %i to %i\n", gpio, level);
+				ret = drive_gpio(gpio, level, &gpio_to_release);
+			}
+		}
+
+		if (sleep_time) {
+			fprintf(stdout, " delay %i us\n", sleep_time);
+			usleep(sleep_time);
+		}
 	}
 #if defined(__linux__)
 	while (gpio_to_release) {
@@ -225,7 +259,7 @@ static int gpio_sequence(struct port_interface *port, const char *s, size_t l)
 		free(to_free);
 	}
 #endif
-	usleep(500000);
+	fprintf(stdout, "GPIO sequence end\n\n");
 	return ret;
 }
 
