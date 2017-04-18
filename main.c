@@ -359,8 +359,13 @@ int main(int argc, char* argv[]) {
 				end = stm->dev->opt_end + 1;
 			else if (is_addr_in_sysmem(start))
 				end = stm->dev->mem_end;
-			else
-				end = start + sizeof(uint32_t);
+			else {
+				/* Unknown territory */
+				if (readwrite_len)
+					end = start + readwrite_len;
+				else
+					end = start + sizeof(uint32_t);
+			}
 		}
 
 		if (readwrite_len && (end > start + readwrite_len))
