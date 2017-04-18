@@ -134,6 +134,17 @@ static int is_addr_in_flash(uint32_t addr)
 	return addr >= stm->dev->fl_start && addr < stm->dev->fl_end;
 }
 
+static int is_addr_in_opt_bytes(uint32_t addr)
+{
+	/* option bytes upper range is inclusive in our device table */
+	return addr >= stm->dev->opt_start && addr <= stm->dev->opt_end;
+}
+
+static int is_addr_in_sysmem(uint32_t addr)
+{
+	return addr >= stm->dev->mem_start && addr < stm->dev->mem_end;
+}
+
 /* returns the page that contains address "addr" */
 static int flash_addr_to_page_floor(uint32_t addr)
 {
@@ -344,6 +355,10 @@ int main(int argc, char* argv[]) {
 			no_erase = 1;
 			if (is_addr_in_ram(start))
 				end = stm->dev->ram_end;
+			else if (is_addr_in_opt_bytes(start))
+				end = stm->dev->opt_end + 1;
+			else if (is_addr_in_sysmem(start))
+				end = stm->dev->mem_end;
 			else
 				end = start + sizeof(uint32_t);
 		}
