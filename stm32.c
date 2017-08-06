@@ -117,6 +117,59 @@ static const uint8_t stm_obl_launch_code[] = {
 
 static const uint32_t stm_obl_launch_code_length = sizeof(stm_obl_launch_code);
 
+/* RM0394, Empty check
+ * On STM32L452 (and possibly all STM32L45xxx/46xxx) internal empty check flag is
+ * implemented to allow easy programming of the virgin devices by the boot loader. This flag is
+ * used when BOOT0 pin is defining Main Flash memory as the target boot space. When the
+ * flag is set, the device is considered as empty and System memory (boot loader) is selected
+ * instead of the Main Flash as a boot space to allow user to program the Flash memory.
+ * This flag is updated only during Option bytes loading: it is set when the content of the
+ * address 0x08000 0000 is read as 0xFFFF FFFF, otherwise it is cleared. It means a power
+ * on or setting of OBL_LAUNCH bit in FLASH_CR register or a toggle of PEMPTY bit in FLASH_SR
+ * register is needed to clear this flag after after programming of a virgin device to execute
+ * user code after System reset.
+ * In STM32L45xxx/46xxx the register FLASH_CR could be locked and a special SW sequence is
+ * required for unlocking it. If a previous unsuccessful unlock has happened, a reset is
+ * required before the unlock. Due to such complications, toggling the PEMPTY bit in FLASH_SR
+ * seams the most reasonable choice.
+ * The code below check first word in flash and flag PEMPTY. If they do not match, then it
+ * toggles PEMPTY. At last, it resets.
+ */
+
+static const uint8_t stm_pempty_launch_code[] = {
+	0x08, 0x48,		//		ldr     r0, [pc, #32] ; (<BASE_FLASH>)
+	0x00, 0x68,		//		ldr     r0, [r0, #0]
+	0x01, 0x30,		//		adds    r0, #1
+	0x41, 0x1e,		//		subs    r1, r0, #1
+	0x88, 0x41,		//		sbcs    r0, r1
+
+	0x07, 0x49,		//		ldr     r1, [pc, #28] ; (<FLASH_SR>)
+	0x07, 0x4a,		//		ldr     r2, [pc, #28] ; (<PEMPTY_MASK>)
+	0x0b, 0x68,		//		ldr     r3, [r1, #0]
+	0x13, 0x40,		//		ands    r3, r2
+	0x5c, 0x1e,		//		subs    r4, r3, #1
+	0xa3, 0x41,		//		sbcs    r3, r4
+
+	0x98, 0x42,		//		cmp     r0, r3
+	0x00, 0xd1,		//		bne.n   skip1
+
+	0x0a, 0x60,		//		str     r2, [r1, #0]
+
+	0x04, 0x48,		// skip1:	ldr     r0, [pc, #16] ; (<AIRCR_OFFSET>)
+	0x05, 0x49,		//		ldr     r1, [pc, #16] ; (<AIRCR_RESET_VALUE>)
+	0x01, 0x60,		//		str     r1, [r0, #0]
+
+	0xfe, 0xe7,		// endless:	b.n	endless
+
+	0x00, 0x00, 0x00, 0x08,	// .word 0x08000000 <BASE_FLASH>
+	0x10, 0x20, 0x02, 0x40,	// .word 0x40022010 <FLASH_SR>
+	0x00, 0x00, 0x02, 0x00,	// .word 0x00020000 <PEMPTY_MASK>
+	0x0c, 0xed, 0x00, 0xe0,	// .word 0xe000ed0c <AIRCR_OFFSET> = NVIC AIRCR register address
+	0x04, 0x00, 0xfa, 0x05	// .word 0x05fa0004 <AIRCR_RESET_VALUE> = VECTKEY | SYSRESETREQ
+};
+
+static const uint32_t stm_pempty_launch_code_length = sizeof(stm_pempty_launch_code);
+
 extern const stm32_dev_t devices[];
 
 int flash_addr_to_page_ceil(uint32_t addr);
@@ -972,6 +1025,9 @@ stm32_err_t stm32_reset_device(const stm32_t *stm)
 	if (stm->dev->flags & F_OBLL) {
 		/* set the OBL_LAUNCH bit to reset device (see RM0360, 2.5) */
 		return stm32_run_raw_code(stm, target_address, stm_obl_launch_code, stm_obl_launch_code_length);
+	} else if (stm->dev->flags & F_PEMPTY) {
+		/* clear the PEMPTY bit to reset the device (see RM0394) */
+		return stm32_run_raw_code(stm, target_address, stm_pempty_launch_code, stm_pempty_launch_code_length);
 	} else {
 		return stm32_run_raw_code(stm, target_address, stm_reset_code, stm_reset_code_length);
 	}
