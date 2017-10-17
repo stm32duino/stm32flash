@@ -92,11 +92,13 @@ unsigned int binary_size(void *storage) {
 parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 	binary_t *st = storage;
 	unsigned int left = *len;
+	unsigned char *d = data;
+
 	if (st->write) return PARSER_ERR_WRONLY;
 
 	ssize_t r;
 	while(left > 0) {
-		r = read(st->fd, data, left);
+		r = read(st->fd, d, left);
 		/* If there is no data to read at all, return OK, but with zero read */
 		if (r == 0 && left == *len) {
 			*len = 0;
@@ -104,7 +106,7 @@ parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 		}
 		if (r <= 0) return PARSER_ERR_SYSTEM;
 		left -= r;
-		data += r;
+		d += r;
 	}
 
 	*len = *len - left;
@@ -113,16 +115,18 @@ parser_err_t binary_read(void *storage, void *data, unsigned int *len) {
 
 parser_err_t binary_write(void *storage, void *data, unsigned int len) {
 	binary_t *st = storage;
+	unsigned char *d = data;
+
 	if (!st->write) return PARSER_ERR_RDONLY;
 
 	ssize_t r;
 	while(len > 0) {
-		r = write(st->fd, data, len);
+		r = write(st->fd, d, len);
 		if (r < 1) return PARSER_ERR_SYSTEM;
 		st->stat.st_size += r;
 
 		len  -= r;
-		data += r;
+		d += r;
 	}
 
 	return PARSER_ERR_OK;

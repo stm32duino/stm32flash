@@ -66,7 +66,7 @@ static int write_to(const char *filename, const char *value)
 static int read_from(const char *filename, char *buf, size_t len)
 {
 	int fd, ret;
-	ssize_t n = 0;
+	size_t n = 0;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {

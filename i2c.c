@@ -149,7 +149,7 @@ static port_err_t i2c_read(struct port_interface *port, void *buf,
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
 	ret = read(h->fd, buf, nbyte);
-	if (ret != nbyte)
+	if (ret != (int)nbyte)
 		return PORT_ERR_UNKNOWN;
 	return PORT_ERR_OK;
 }
@@ -164,7 +164,7 @@ static port_err_t i2c_write(struct port_interface *port, void *buf,
 	if (h == NULL)
 		return PORT_ERR_UNKNOWN;
 	ret = write(h->fd, buf, nbyte);
-	if (ret != nbyte)
+	if (ret != (int)nbyte)
 		return PORT_ERR_UNKNOWN;
 	return PORT_ERR_OK;
 }
