@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "hex.h"
+#include "../compiler.h"
 #include "../utils.h"
 
 typedef struct {
@@ -213,7 +214,7 @@ parser_err_t hex_read(void *storage, void *data, unsigned int *len) {
 	return PARSER_ERR_OK;
 }
 
-parser_err_t hex_write(void *storage, void *data, unsigned int len) {
+parser_err_t hex_write(void __unused *storage, void __unused *data, unsigned int __unused len) {
 	return PARSER_ERR_RDONLY;
 }
 
