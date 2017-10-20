@@ -28,6 +28,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#include "compiler.h"
 #include "init.h"
 #include "serial.h"
 #include "stm32.h"
@@ -156,7 +158,8 @@ static int release_gpio(int n, int input, int exported)
 	return 1;
 }
 #else
-static int drive_gpio(int n, int level, struct gpio_list **gpio_to_release)
+static int drive_gpio(int __unused n, int __unused level,
+		      struct gpio_list __unused **gpio_to_release)
 {
 	fprintf(stderr, "GPIO control only available in Linux\n");
 	return 0;

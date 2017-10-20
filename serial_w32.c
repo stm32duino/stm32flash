@@ -27,6 +27,7 @@
 #include <windows.h>
 #include <ctype.h>
 
+#include "compiler.h"
 #include "serial.h"
 #include "port.h"
 
@@ -88,7 +89,7 @@ static serial_t *serial_open(const char *device)
 	return h;
 }
 
-static void serial_flush(const serial_t *h)
+static void serial_flush(const serial_t __unused *h)
 {
 	/* We shouldn't need to flush in non-overlapping (blocking) mode */
 	/* tcflush(h->fd, TCIFLUSH); */
