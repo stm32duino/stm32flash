@@ -258,8 +258,6 @@ static port_err_t serial_w32_read(struct port_interface *port, void *buf,
 		ReadFile(h->fd, pos, nbyte, &r, NULL);
 		if (r == 0)
 			return PORT_ERR_TIMEDOUT;
-		if (r < 0)
-			return PORT_ERR_UNKNOWN;
 
 		nbyte -= r;
 		pos += r;
