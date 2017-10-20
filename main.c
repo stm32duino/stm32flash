@@ -498,8 +498,8 @@ int main(int argc, char* argv[]) {
 	} else if (action == ACT_WRITE) {
 		fprintf(diag, "Write to memory\n");
 
-		off_t 	offset = 0;
-		ssize_t r;
+		unsigned int offset = 0;
+		unsigned int r;
 		unsigned int size;
 		unsigned int max_wlen, max_rlen;
 
