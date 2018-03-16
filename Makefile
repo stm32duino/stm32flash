@@ -1,6 +1,14 @@
 PREFIX = /usr/local
 CFLAGS += -Wall -g
 
+ifndef CC
+	$(error CC is not defined)
+endif
+
+ifndef AR
+	$(error AR is not defined)
+endif
+
 INSTALL = install
 
 OBJS =	dev_table.o	\
