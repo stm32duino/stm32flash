@@ -33,3 +33,7 @@ Cross compile on Linux host for Windows target with MinGW:
 =====================================================================
 I'm using a 64 bit Arch Linux machines, and I usually run:
 	make CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar
+
+Cross compile on Linux 64 bits host for linux 32 bits target:
+=====================================================================
+	make CFLAGS=-m32 LDFLAGS=-m32
