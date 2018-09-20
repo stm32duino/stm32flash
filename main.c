@@ -43,7 +43,7 @@
 #include <windows.h>
 #endif
 
-#define VERSION "0.5"
+#define VERSION "STM32duino_0.5.1"
 
 /* device globals */
 stm32_t		*stm		= NULL;
@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	fprintf(diag, "stm32flash " VERSION "\n\n");
-	fprintf(diag, "http://stm32flash.sourceforge.net/\n\n");
+	fprintf(diag, "https://github.com/stm32duino/stm32flash\n\n");
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
 	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, TRUE );
