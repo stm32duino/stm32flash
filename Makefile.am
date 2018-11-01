@@ -15,6 +15,7 @@ stm32flash_SOURCES  = \
 	serial_common.c	\
 	serial_platform.c\
 	stm32.c		\
+	spi.c		\
 	utils.c
 
 stm32flash_LDADD   = ${top_builddir}/parsers/parsers.la

@@ -1,6 +1,6 @@
 .TH STM32FLASH 1 "2015\-11\-25" STM32FLASH "User command"
 .SH NAME
-stm32flash \- flashing utility for STM32 through UART or I2C
+stm32flash \- flashing utility for STM32 through UART, I2C or SPI
 .SH SYNOPSIS
 .B stm32flash
 .RB [ \-cfhjkouvCR ]
@@ -30,19 +30,23 @@ stm32flash \- flashing utility for STM32 through UART or I2C
 .IR GPIO_string ]
 .RI [ tty_device
 |
-.IR i2c_device ]
+.IR i2c_device
+|
+.IR spi_device ]
 
 .SH DESCRIPTION
 .B stm32flash
 reads or writes the flash memory of STM32.
 
 It requires the STM32 to embed a bootloader compliant with ST
-application note AN3155 or AN4221.
+application note AN3155, AN4221 or AN4286.
 .B stm32flash
 uses the serial port
 .I tty_device
-or the i2c port
+, the i2c port
 .I i2c_device
+or the spi port
+.I spi_device
 to interact with the bootloader of STM32.
 
 .SH OPTIONS
@@ -245,7 +249,7 @@ the '&' delimiter adds no delay.
 An empty signal, thus repeated ',' delimiters, can be used to insert larger
 delays in multiples of 100 ms.
 E.g. "rts,,,,\-dtr" will set RTS, then wait 400 ms, then reset DTR.
-"rts&\-dtr" will set RTS and reset DTR without delay. You can use ',' delimiters 
+"rts&\-dtr" will set RTS and reset DTR without delay. You can use ',' delimiters
 alone to simply add a delay between opening port and starting to flash.
 .DP
 .P
@@ -374,6 +378,9 @@ and is since 2012 maintained by
 Man page and extension to STM32W and I2C are written by
 .IR "Antonio Borneo <borneo.antonio@gmail.com>" .
 
+SPI extension is written by
+.IR "Nils Hasenbanck <nils@hasenbanck.de>" .
+
 Please report any bugs at the project homepage
 http://stm32flash.sourceforge.net .
 
@@ -386,8 +393,10 @@ The current version of
 .B stm32flash
 only supports
 .I UART
-and
+,
 .I I2C
+and
+.I SPI
 ports.
 .PD 0
 .P

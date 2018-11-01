@@ -19,6 +19,7 @@ OBJS =	dev_table.o	\
 	serial_common.o	\
 	serial_platform.o	\
 	stm32.o		\
+	spi.o		\
 	utils.o
 
 LIBOBJS = parsers/parsers.a

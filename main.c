@@ -878,7 +878,7 @@ int parse_options(int argc, char *argv[])
 
 void show_help(char *name) {
 	fprintf(stderr,
-		"Usage: %s [-bvngfhc] [-[rw] filename] [tty_device | i2c_device]\n"
+		"Usage: %s [-bvngfhc] [-[rw] filename] [tty_device | i2c_device | spi_device]\n"
 		"	-a bus_address	Bus address (e.g. for I2C port)\n"
 		"	-b rate		Baud rate (default 57600)\n"
 		"	-m mode		Serial port mode (default 8e1)\n"
@@ -922,6 +922,8 @@ void show_help(char *name) {
 		"		%s /dev/ttyS0\n"
 		"	  or:\n"
 		"		%s /dev/i2c-0\n"
+		"	  or:\n"
+		"		%s /dev/spidev0.0\n"
 		"\n"
 		"	Write with verify and then start execution:\n"
 		"		%s -w filename -v -g 0x0 /dev/ttyS0\n"
@@ -943,6 +945,7 @@ void show_help(char *name) {
 		"	- entry sequence: delay 500ms\n"
 		"	- exit sequence: rts=high, dtr=low, 300ms delay, GPIO_2=high\n"
 		"		%s -R -i ',,,,,:rts&-dtr,,,2' /dev/ttyS0\n",
+		name,
 		name,
 		name,
 		name,
