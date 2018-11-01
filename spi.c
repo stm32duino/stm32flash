@@ -128,7 +128,6 @@ static port_err_t spi_open(struct port_interface *port,
     return PORT_ERR_UNKNOWN;
     }
 
-  /* Kontrollausgabe */
   printf("SPI-Device.....: %s\n", ops->device);
   printf("SPI-Mode.......: %d\n", h->mode);
   printf("Bit per word...: %d\n", h->bits);
