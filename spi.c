@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +32,6 @@
 #include "compiler.h"
 #include "serial.h"
 #include "port.h"
-
 
 #if !defined(__linux__)
 
@@ -81,9 +81,9 @@ static port_err_t spi_open(struct port_interface *port,
   }
 
   /* 3. configure the SPI device */
-  h->mode = 0;
+  h->mode = SPI_MODE_0;
   h->bits = 8;
-  h->speed = 8000000; // 8 Mhz
+  h->speed = 500000; // 500 kHz
 
   ret = ioctl(fd, SPI_IOC_WR_MODE, &h->mode);
   if (ret < 0) {
@@ -91,50 +91,46 @@ static port_err_t spi_open(struct port_interface *port,
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
+  }
   ret = ioctl(fd, SPI_IOC_RD_MODE, &h->mode);
   if (ret < 0) {
     fprintf(stderr, "Error while verifying spi mode: %d\n", errno);
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
+  }
   ret = ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &h->bits);
   if (ret < 0) {
     fprintf(stderr, "Error while setting bits per word: %d\n", errno);
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
+  }
   ret = ioctl(fd, SPI_IOC_RD_BITS_PER_WORD, &h->bits);
   if (ret < 0) {
     fprintf(stderr, "Error while verifying bits per word: %d\n", errno);
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
+  }
   ret = ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &h->speed);
   if (ret < 0) {
     fprintf(stderr, "Error while setting bus speed: %d\n", errno);
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
+  }
   ret = ioctl(fd, SPI_IOC_RD_MAX_SPEED_HZ, &h->speed);
   if (ret < 0) {
     fprintf(stderr, "Error while verifying bus speed: %d\n", errno);
     close(fd);
     free(h);
     return PORT_ERR_UNKNOWN;
-    }
-
-  printf("SPI-Device.....: %s\n", ops->device);
-  printf("SPI-Mode.......: %d\n", h->mode);
-  printf("Bit per word...: %d\n", h->bits);
-  printf("Speed..........: %d kHz (%d MHz)\n", h->speed/1000, h->speed/1000/1000);
-
+  }
+  
   h->fd = fd;
   port->private = h;
+
   return PORT_ERR_OK;
 }
 
@@ -150,23 +146,22 @@ static port_err_t spi_close(struct port_interface *port) {
   return PORT_ERR_OK;
 }
 
-static port_err_t spiWriteRead(struct spi_priv *h, void *data, size_t length) {
-  struct spi_ioc_transfer spi[length];
-  int i, ret;
+static port_err_t spiTransfer(struct spi_priv *h, void *data, size_t length) {
+  int ret;
 
-  for (i = 0; i < length; i++) {
-    spi[i].tx_buf        = (unsigned long)(data + i);
-    spi[i].rx_buf        = (unsigned long)(data + i);
-    spi[i].len           = sizeof(*(data + i));
-    spi[i].delay_usecs   = 0;
-    spi[i].speed_hz      = h->speed;
-    spi[i].bits_per_word = h->bits;
-    spi[i].cs_change     = 0;
-  }
-
-  ret = ioctl(h->fd, SPI_IOC_MESSAGE(length), &spi) ;
+  struct spi_ioc_transfer tr = {
+    .tx_buf = (uint32_t)(data);
+    .rx_buf = (uint32_t)(data);
+		.len = sizeof(*(data)),
+		.speed_hz = 0,
+		.bits_per_word = 0,
+    .delay_usecs = 0,
+    .cs_change = false
+  };
+  
+  ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
   if(ret < 0) {
-    fprintf(stderr, "Error while transfering data: %d\n", errno);
+      fprintf(stderr, "Error while transfering data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
   }
   return ret;
@@ -180,9 +175,18 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
   h = (struct spi_priv *)port->private;
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
-  ret = spiWriteRead(h, buf, nbyte);
+
+  // Send dummy data to initiate read
+  int tmp = 0xFE;
+  ret = spiTransfer(h, &tmp, 1);
   if (ret != (int)nbyte)
     return PORT_ERR_UNKNOWN;
+
+  // Read data stream
+  ret = spiTransfer(h, buf, nbyte);
+  if (ret != (int)nbyte)
+    return PORT_ERR_UNKNOWN;
+  
   return PORT_ERR_OK;
 }
 
@@ -194,7 +198,8 @@ static port_err_t spi_write(struct port_interface *port, void *buf,
   h = (struct spi_priv *)port->private;
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
-  ret = spiWriteRead(h, buf, nbyte);
+
+  ret = spiTransfer(h, buf, nbyte);
   if (ret != (int)nbyte)
     return PORT_ERR_UNKNOWN;
   return PORT_ERR_OK;
@@ -216,13 +221,13 @@ static struct varlen_cmd spi_cmd_get_reply[] = {
 };
 
 static port_err_t spi_flush(struct port_interface __unused *port) {
-  /* We shouldn't need to flush spi */
+  /* SPI doesn't need to be flushed */
   return PORT_ERR_OK;
 }
 
 struct port_interface port_spi = {
   .name	= "spi",
-  .flags	= PORT_STRETCH_W,
+  .flags	= PORT_STRETCH_W | PORT_SPI_INIT | PORT_CMD_SOF,
   .open	= spi_open,
   .close	= spi_close,
   .flush  = spi_flush,

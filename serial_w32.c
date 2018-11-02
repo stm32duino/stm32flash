@@ -350,7 +350,7 @@ static port_err_t serial_w32_flush(struct port_interface *port)
 
 struct port_interface port_serial = {
 	.name	= "serial_w32",
-	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT | PORT_RETRY,
+	.flags	= PORT_BYTE | PORT_UART_INIT | PORT_GVR_ETX | PORT_RETRY,
 	.open	= serial_w32_open,
 	.close	= serial_w32_close,
 	.flush  = serial_w32_flush,

@@ -33,7 +33,8 @@
 #define STM32_NACK	0x1F
 #define STM32_BUSY	0x76
 
-#define STM32_CMD_INIT	0x7F
+#define STM32_CMD_UART_INIT	0x7F	/* UART init byte */
+#define STM32_CMD_SPI_INIT	0x5A	/* SPI init byte */
 #define STM32_CMD_GET	0x00	/* get the version and command supported */
 #define STM32_CMD_GVR	0x01	/* get version and read protection status */
 #define STM32_CMD_GID	0x02	/* get ID */
@@ -233,11 +234,20 @@ static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
 	struct port_interface *port = stm->port;
 	stm32_err_t s_err;
 	port_err_t p_err;
-	uint8_t buf[2];
+	uint8_t buf[3];
 
-	buf[0] = cmd;
-	buf[1] = cmd ^ 0xFF;
-	p_err = port->write(port, buf, 2);
+	// Test if CMD need prepended SOF
+	if (port->flags & PORT_CMD_SOF) {
+		buf[0] = 0x5A;
+		buf[1] = cmd;
+		buf[2] = cmd ^ 0xFF;
+		p_err = port->write(port, buf, 3);
+	} else {
+		buf[0] = cmd;
+		buf[1] = cmd ^ 0xFF;
+		p_err = port->write(port, buf, 2);
+	}
+
 	if (p_err != PORT_ERR_OK) {
 		fprintf(stderr, "Failed to send command\n");
 		return STM32_ERR_UNKNOWN;
@@ -268,10 +278,18 @@ static stm32_err_t stm32_resync(const stm32_t *stm)
 	time(&t0);
 	t1 = t0;
 
-	buf[0] = STM32_CMD_ERR;
-	buf[1] = STM32_CMD_ERR ^ 0xFF;
 	while (t1 < t0 + STM32_RESYNC_TIMEOUT) {
-		p_err = port->write(port, buf, 2);
+		// Test if CMD need prepended SOF
+		if (port->flags & PORT_CMD_SOF) {
+			buf[0] = 0x5A;
+			buf[1] = STM32_CMD_ERR;
+			buf[2] = STM32_CMD_ERR ^ 0xFF;
+			p_err = port->write(port, buf, 3);
+		} else {
+			buf[0] = STM32_CMD_ERR;
+			buf[1] = STM32_CMD_ERR ^ 0xFF;
+			p_err = port->write(port, buf, 2);
+		}
 		if (p_err != PORT_ERR_OK) {
 			usleep(500000);
 			time(&t1);
@@ -349,8 +367,7 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 }
 
 /*
- * Some interface, e.g. UART, requires a specific init sequence to let STM32
- * autodetect the interface speed.
+ * Some interface, e.g. UART / SPI, requires a specific init sequence.
  * The sequence is only required one time after reset.
  * stm32flash has command line flag "-c" to prevent sending the init sequence
  * in case it was already sent before.
@@ -364,7 +381,8 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
 	port_err_t p_err;
-	uint8_t byte, cmd = STM32_CMD_INIT;
+	uint8_t byte, cmd = (port->flags & PORT_SPI_INIT) ?
+		STM32_CMD_SPI_INIT : STM32_CMD_UART_INIT;
 
 	p_err = port->write(port, &cmd, 1);
 	if (p_err != PORT_ERR_OK) {
@@ -386,8 +404,9 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	}
 
 	/*
-	 * Check if previous STM32_CMD_INIT was taken as first byte
-	 * of a command. Send a new byte, we should get back a NACK.
+	 * Check if previous STM32_CMD_UART_INIT / STM32_CMD_SPI_INIT was
+	 * taken as first byte of a command. Send a new byte, we should
+	 * get back a NACK.
 	 */
 	p_err = port->write(port, &cmd, 1);
 	if (p_err != PORT_ERR_OK) {
@@ -417,7 +436,7 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	memset(stm->cmd, STM32_CMD_ERR, sizeof(stm32_cmd_t));
 	stm->port = port;
 
-	if ((port->flags & PORT_CMD_INIT) && init)
+	if (((port->flags & PORT_UART_INIT) || (port->flags & PORT_SPI_INIT)) && init)
 		if (stm32_send_init_seq(stm) != STM32_ERR_OK)
 			return NULL;
 

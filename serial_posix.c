@@ -375,7 +375,7 @@ static port_err_t serial_posix_flush(struct port_interface *port)
 
 struct port_interface port_serial = {
 	.name	= "serial_posix",
-	.flags	= PORT_BYTE | PORT_GVR_ETX | PORT_CMD_INIT | PORT_RETRY,
+	.flags	= PORT_BYTE | PORT_UART_INIT | PORT_GVR_ETX | PORT_RETRY,
 	.open	= serial_posix_open,
 	.close	= serial_posix_close,
 	.flush  = serial_posix_flush,
