@@ -127,7 +127,7 @@ static port_err_t spi_open(struct port_interface *port,
     free(h);
     return PORT_ERR_UNKNOWN;
   }
-  
+
   h->fd = fd;
   port->private = h;
 
@@ -150,15 +150,15 @@ static port_err_t spiTransfer(struct spi_priv *h, void *data, size_t length) {
   int ret;
 
   struct spi_ioc_transfer tr = {
-    .tx_buf = (uint32_t)(data);
-    .rx_buf = (uint32_t)(data);
+    .tx_buf = (long int)(data),
+    .rx_buf = (long int)(data),
 		.len = sizeof(*(data)),
 		.speed_hz = 0,
 		.bits_per_word = 0,
     .delay_usecs = 0,
     .cs_change = false
   };
-  
+
   ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
   if(ret < 0) {
       fprintf(stderr, "Error while transfering data: %d\n", errno);
@@ -186,7 +186,7 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
   ret = spiTransfer(h, buf, nbyte);
   if (ret != (int)nbyte)
     return PORT_ERR_UNKNOWN;
-  
+
   return PORT_ERR_OK;
 }
 
