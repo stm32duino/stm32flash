@@ -31,6 +31,7 @@
 
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
+#define STM32_ACKOK	0x79
 #define STM32_BUSY	0x76
 
 #define STM32_CMD_UART_INIT	0x7F	/* UART init byte */
@@ -210,10 +211,17 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 			return STM32_ERR_UNKNOWN;
 		}
 
-		if (byte == STM32_ACK)
-			return STM32_ERR_OK;
-		if (byte == STM32_NACK)
-			return STM32_ERR_NACK;
+		if (byte == STM32_ACK || byte == STM32_NACK) {
+			if (port->flags & PORT_SPI_INIT) {
+				byte = STM32_ACKOK;
+				p_err = port->write(port, &byte, 1);
+		    	if (p_err != PORT_ERR_OK) {
+			    	fprintf(stderr, "Failed to write ACKOK byte\n");
+			    	return STM32_ERR_UNKNOWN;
+		    	}
+			}
+			return (byte == STM32_ACK) ? STM32_ERR_OK : STM32_ERR_NACK;
+		}
 		if (byte != STM32_BUSY) {
 			fprintf(stderr, "Got byte 0x%02x instead of ACK\n",
 				byte);
@@ -236,7 +244,6 @@ static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
 	port_err_t p_err;
 	uint8_t buf[3];
 
-	// Test if CMD need prepended SOF
 	if (port->flags & PORT_CMD_SOF) {
 		buf[0] = 0x5A;
 		buf[1] = cmd;
@@ -279,7 +286,6 @@ static stm32_err_t stm32_resync(const stm32_t *stm)
 	t1 = t0;
 
 	while (t1 < t0 + STM32_RESYNC_TIMEOUT) {
-		// Test if CMD need prepended SOF
 		if (port->flags & PORT_CMD_SOF) {
 			buf[0] = 0x5A;
 			buf[1] = STM32_CMD_ERR;
@@ -389,14 +395,24 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		fprintf(stderr, "Failed to send init to device\n");
 		return STM32_ERR_UNKNOWN;
 	}
+
 	p_err = port->read(port, &byte, 1);
-	if (p_err == PORT_ERR_OK && byte == STM32_ACK)
-		return STM32_ERR_OK;
-	if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
-		/* We could get error later, but let's continue, for now. */
-		fprintf(stderr,
-			"Warning: the interface was not closed properly.\n");
-		return STM32_ERR_OK;
+	if (p_err == PORT_ERR_OK && (byte == STM32_ACK || byte == STM32_NACK)) {
+		if (port->flags & PORT_SPI_INIT) {
+			byte = STM32_ACKOK;
+			p_err = port->write(port, &byte, 1);
+		    if (p_err != PORT_ERR_OK) {
+		    	fprintf(stderr, "Failed to write ACKOK byte\n");
+		    	return STM32_ERR_UNKNOWN;
+	    	}
+		}
+		if (byte == STM32_ACK) {
+			return STM32_ERR_OK;
+		} else {
+			/* We could get error later, but let's continue, for now. */
+			fprintf(stderr, "Warning: the interface was not closed properly.\n");
+			return STM32_ERR_OK;
+		}
 	}
 	if (p_err != PORT_ERR_TIMEDOUT) {
 		fprintf(stderr, "Failed to init device.\n");
@@ -407,6 +423,7 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	 * Check if previous STM32_CMD_UART_INIT / STM32_CMD_SPI_INIT was
 	 * taken as first byte of a command. Send a new byte, we should
 	 * get back a NACK.
+	 * TODO: Test this with SPI
 	 */
 	p_err = port->write(port, &cmd, 1);
 	if (p_err != PORT_ERR_OK) {

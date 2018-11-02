@@ -177,7 +177,7 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
     return PORT_ERR_UNKNOWN;
 
   // Send dummy data to initiate read
-  int tmp = 0xFE;
+  int tmp = 0x00;
   ret = spiTransfer(h, &tmp, 1);
   if (ret != (int)nbyte)
     return PORT_ERR_UNKNOWN;
