@@ -460,7 +460,6 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 			return NULL;
 
 	/* get the version and read protection status  */
-		fprintf(stderr, "send gvr\n");
 	if (stm32_send_command(stm, STM32_CMD_GVR) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
