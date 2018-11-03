@@ -223,8 +223,7 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 			return (byte == STM32_ACK) ? STM32_ERR_OK : STM32_ERR_NACK;
 		}
 		if (byte != STM32_BUSY) {
-			fprintf(stderr, "Got byte 0x%02x instead of ACK\n",
-				byte);
+			fprintf(stderr, "Got byte 0x%02x instead of ACK\n", byte);
 			return STM32_ERR_UNKNOWN;
 		}
 	} while (1);

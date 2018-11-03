@@ -146,47 +146,32 @@ static port_err_t spi_close(struct port_interface *port) {
   return PORT_ERR_OK;
 }
 
-static port_err_t spiTransfer(struct spi_priv *h, void *data, size_t length) {
-  int ret;
-
-  struct spi_ioc_transfer tr = {
-    .tx_buf = (long int)(data),
-    .rx_buf = (long int)(data),
-		.len = sizeof(*(data)),
-		.speed_hz = 0,
-		.bits_per_word = 0,
-    .delay_usecs = 0,
-    .cs_change = false
-  };
-
-  ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
-  if(ret < 0) {
-      fprintf(stderr, "Error while transfering data: %d\n", errno);
-    return PORT_ERR_UNKNOWN;
-  }
-  return ret;
-}
-
 static port_err_t spi_read(struct port_interface *port, void *buf,
          size_t nbyte) {
   struct spi_priv *h;
   int ret;
+  uint8_t dummy = 0x00;
 
   h = (struct spi_priv *)port->private;
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
 
-  // Send dummy data to initiate read
-  int tmp = 0x00;
-  ret = spiTransfer(h, &tmp, 1);
-  if (ret != (int)nbyte)
-    return PORT_ERR_UNKNOWN;
+  struct spi_ioc_transfer tr[2] = {
+    {
+      .rx_buf = (long int)(&dummy),
+		  .len = 1,
+    },
+    {
+      .rx_buf = (long int)(buf),
+		  .len = nbyte,
+    }
+  };
 
-  // Read data stream
-  ret = spiTransfer(h, buf, nbyte);
-  if (ret != (int)nbyte)
+  ret = ioctl(h->fd, SPI_IOC_MESSAGE(2), &tr) ;
+  if(ret < 0) {
+    fprintf(stderr, "Error while reading data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
-
+  }
   return PORT_ERR_OK;
 }
 
@@ -199,9 +184,16 @@ static port_err_t spi_write(struct port_interface *port, void *buf,
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
 
-  ret = spiTransfer(h, buf, nbyte);
-  if (ret != (int)nbyte)
+  struct spi_ioc_transfer tr = {
+    .tx_buf = (long int)(buf),
+	  .len = nbyte,
+  };
+
+  ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
+  if(ret < 0) {
+    fprintf(stderr, "Error while writing data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
+  }
   return PORT_ERR_OK;
 }
 
@@ -227,7 +219,7 @@ static port_err_t spi_flush(struct port_interface __unused *port) {
 
 struct port_interface port_spi = {
   .name	= "spi",
-  .flags	= PORT_STRETCH_W | PORT_SPI_INIT | PORT_CMD_SOF,
+  .flags	= PORT_SPI_INIT | PORT_CMD_SOF,
   .open	= spi_open,
   .close	= spi_close,
   .flush  = spi_flush,
