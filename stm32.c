@@ -33,6 +33,7 @@
 #define STM32_NACK	0x1F
 #define STM32_ACKOK	0x79
 #define STM32_BUSY	0x76
+#define STM32_BUSY2	0xA5
 
 #define STM32_CMD_UART_INIT	0x7F	/* UART init byte */
 #define STM32_CMD_SPI_INIT	0x5A	/* SPI init byte */
@@ -64,6 +65,7 @@
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
 #define STM32_WPROT_TIMEOUT	1	/* seconds */
 #define STM32_RPROT_TIMEOUT	1	/* seconds */
+#define STM32_STD_TIMEOUT	1	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
 
@@ -200,10 +202,14 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 	do {
 		p_err = port->read(port, &byte, 1);
-		if (p_err == PORT_ERR_TIMEDOUT && timeout) {
+		if (timeout) {
 			time(&t1);
 			if (t1 < t0 + timeout)
 				continue;
+			else {
+				fprintf(stderr, "Timeout while waiting for ACK\n");
+				return STM32_ERR_UNKNOWN;
+			}
 		}
 
 		if (p_err != PORT_ERR_OK) {
@@ -213,8 +219,8 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 		if (byte == STM32_ACK || byte == STM32_NACK) {
 			if (port->flags & PORT_SPI_INIT) {
-				byte = STM32_ACK;
-				p_err = port->write(port, &byte, 1);
+				int8_t b = STM32_ACK;
+				p_err = port->write(port, &b, 1);
 		    	if (p_err != PORT_ERR_OK) {
 			    	fprintf(stderr, "Failed to reply ACK byte\n");
 			    	return STM32_ERR_UNKNOWN;
@@ -222,7 +228,7 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 			}
 			return (byte == STM32_ACK) ? STM32_ERR_OK : STM32_ERR_NACK;
 		}
-		if (byte != STM32_BUSY) {
+		if ((byte != STM32_BUSY) && (byte != STM32_BUSY2)) {
 			fprintf(stderr, "Got byte 0x%02x instead of ACK\n", byte);
 			return STM32_ERR_UNKNOWN;
 		}
@@ -231,7 +237,7 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 static stm32_err_t stm32_get_ack(const stm32_t *stm)
 {
-	return stm32_get_ack_timeout(stm, 0);
+	return stm32_get_ack_timeout(stm, STM32_STD_TIMEOUT);
 }
 
 static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
@@ -270,7 +276,7 @@ static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
 
 static stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
 {
-	return stm32_send_command_timeout(stm, cmd, 0);
+	return stm32_send_command_timeout(stm, cmd, STM32_STD_TIMEOUT);
 }
 
 /* if we have lost sync, send a wrong command and expect a NACK */

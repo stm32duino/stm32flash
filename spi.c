@@ -231,7 +231,15 @@ static port_err_t spi_gpio(struct port_interface __unused *port,
 }
 
 static const char *spi_get_cfg_str(struct port_interface *port) {
-  return "NO CONFIG";
+	struct spi_priv *h;
+	static char str[100];
+
+	h = (struct spi_priv *)port->private;
+	if (h == NULL)
+		return "INVALID";
+
+	snprintf(str, sizeof(str), "speed %d kHz, spi mode %d, %d bits per word", h->speed / 1000, h->mode, h->bits);
+	return str;
 }
 
 static struct varlen_cmd spi_cmd_get_reply[] = {
@@ -247,7 +255,7 @@ static port_err_t spi_flush(struct port_interface __unused *port) {
 
 struct port_interface port_spi = {
   .name	= "spi",
-  .flags	= PORT_SPI_INIT | PORT_CMD_SOF,
+  .flags	= PORT_SPI_INIT | PORT_CMD_SOF | PORT_RETRY,
   .open	= spi_open,
   .close	= spi_close,
   .flush  = spi_flush,
