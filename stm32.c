@@ -204,9 +204,7 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 		p_err = port->read(port, &byte, 1);
 		if (timeout) {
 			time(&t1);
-			if (t1 < t0 + timeout)
-				continue;
-			else {
+			if (!(t1 < t0 + timeout)) {
 				fprintf(stderr, "Timeout while waiting for ACK\n");
 				return STM32_ERR_UNKNOWN;
 			}
@@ -462,12 +460,16 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 			return NULL;
 
 	/* get the version and read protection status  */
+		fprintf(stderr, "send gvr\n");
 	if (stm32_send_command(stm, STM32_CMD_GVR) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
 
 	/* From AN, only UART bootloader returns 3 bytes */
+
+	// TODO: This fails on SPI (because of dummy read missing?)
+
 	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
 	if (port->read(port, buf, len) != PORT_ERR_OK)
 		return NULL;

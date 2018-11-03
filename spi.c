@@ -152,26 +152,18 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
          size_t nbyte) {
   struct spi_priv *h;
   int ret;
-  uint8_t dummy = 0x00;
   uint32_t retry = 0;
 
   h = (struct spi_priv *)port->private;
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
 
-  struct spi_ioc_transfer tr[2] = {
-    {
-      .rx_buf = (long int)(&dummy),
-      .tx_buf = (long int)(&dummy),
-		  .len = 1,
-    },
-    {
+  struct spi_ioc_transfer tr = {
       .rx_buf = (long int)(buf),
 		  .len = nbyte,
-    }
   };
 
-  ret = ioctl(h->fd, SPI_IOC_MESSAGE(2), &tr) ;
+  ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
   if(ret < 0) {
     fprintf(stderr, "Error while reading data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
