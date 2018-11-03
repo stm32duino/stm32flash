@@ -213,10 +213,10 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 		if (byte == STM32_ACK || byte == STM32_NACK) {
 			if (port->flags & PORT_SPI_INIT) {
-				byte = STM32_ACKOK;
+				byte = STM32_ACK;
 				p_err = port->write(port, &byte, 1);
 		    	if (p_err != PORT_ERR_OK) {
-			    	fprintf(stderr, "Failed to write ACKOK byte\n");
+			    	fprintf(stderr, "Failed to reply ACK byte\n");
 			    	return STM32_ERR_UNKNOWN;
 		    	}
 			}
@@ -358,7 +358,7 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 			return STM32_ERR_UNKNOWN;
 	}
 
-	fprintf(stderr, "Re sync (len = %d)\n", data[0]);
+	fprintf(stderr, "Resync (len = %d)\n", data[0]);
 	if (stm32_resync(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
@@ -398,10 +398,10 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	p_err = port->read(port, &byte, 1);
 	if (p_err == PORT_ERR_OK && (byte == STM32_ACK || byte == STM32_NACK)) {
 		if (port->flags & PORT_SPI_INIT) {
-			byte = STM32_ACKOK;
+			byte = STM32_ACK;
 			p_err = port->write(port, &byte, 1);
 		    if (p_err != PORT_ERR_OK) {
-		    	fprintf(stderr, "Failed to write ACKOK byte\n");
+		    	fprintf(stderr, "Failed to reply ACK byte\n");
 		    	return STM32_ERR_UNKNOWN;
 	    	}
 		}
@@ -409,12 +409,12 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 			return STM32_ERR_OK;
 		} else {
 			/* We could get error later, but let's continue, for now. */
-			fprintf(stderr, "Warning: the interface was not closed properly.\n");
+			fprintf(stderr, "Warning: The interface was not closed properly\n");
 			return STM32_ERR_OK;
 		}
 	}
 	if (p_err != PORT_ERR_TIMEDOUT) {
-		fprintf(stderr, "Failed to init device.\n");
+		fprintf(stderr, "Failed to init device\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
@@ -422,17 +422,16 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 	 * Check if previous STM32_CMD_UART_INIT / STM32_CMD_SPI_INIT was
 	 * taken as first byte of a command. Send a new byte, we should
 	 * get back a NACK.
-	 * TODO: Test this with SPI
 	 */
 	p_err = port->write(port, &cmd, 1);
 	if (p_err != PORT_ERR_OK) {
-		fprintf(stderr, "Failed to send init to device\n");
+		fprintf(stderr, "Failed to send init to device while resetting\n");
 		return STM32_ERR_UNKNOWN;
 	}
 	p_err = port->read(port, &byte, 1);
 	if (p_err == PORT_ERR_OK && byte == STM32_NACK)
 		return STM32_ERR_OK;
-	fprintf(stderr, "Failed to init device.\n");
+	fprintf(stderr, "Failed to reset device\n");
 	return STM32_ERR_UNKNOWN;
 }
 
