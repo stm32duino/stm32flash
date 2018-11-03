@@ -43,7 +43,7 @@
 #include <windows.h>
 #endif
 
-#define VERSION "STM32duino_0.5.1"
+#define VERSION "STM32duino_0.6.0"
 
 /* device globals */
 stm32_t		*stm		= NULL;
