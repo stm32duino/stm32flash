@@ -201,7 +201,7 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 		time(&t0);
 
 	do {
-		p_err = port->read(port, &byte, 1);
+		p_err = port->read(port, &byte, 1, false);
 		if (timeout) {
 			time(&t1);
 			if (!(t1 < t0 + timeout)) {
@@ -304,7 +304,7 @@ static stm32_err_t stm32_resync(const stm32_t *stm)
 			time(&t1);
 			continue;
 		}
-		p_err = port->read(port, &ack, 1);
+		p_err = port->read(port, &ack, 1, false);
 		if (p_err != PORT_ERR_OK) {
 			time(&t1);
 			continue;
@@ -338,17 +338,17 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 		return STM32_ERR_UNKNOWN;
 	if (port->flags & PORT_BYTE) {
 		/* interface is UART-like */
-		p_err = port->read(port, data, 1);
+		p_err = port->read(port, data, 1, false);
 		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		len = data[0];
-		p_err = port->read(port, data + 1, len + 1);
+		p_err = port->read(port, data + 1, len + 1, false);
 		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 		return STM32_ERR_OK;
 	}
 
-	p_err = port->read(port, data, len + 2);
+	p_err = port->read(port, data, len + 2, true);
 	if (p_err == PORT_ERR_OK && len == data[0])
 		return STM32_ERR_OK;
 	if (p_err != PORT_ERR_OK) {
@@ -357,7 +357,8 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 			return STM32_ERR_UNKNOWN;
 		if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
-		p_err = port->read(port, data, 1);
+		// TODO: Maybe must be true?
+		p_err = port->read(port, data, 1, false);
 		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
 	}
@@ -369,7 +370,7 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	len = data[0];
 	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
-	p_err = port->read(port, data, len + 2);
+	p_err = port->read(port, data, len + 2, true);
 	if (p_err != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	return STM32_ERR_OK;
@@ -399,7 +400,8 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 
-	p_err = port->read(port, &byte, 1);
+	// TODO: Maybe use ACK function here instead with retry?
+	p_err = port->read(port, &byte, 1, false);
 	if (p_err == PORT_ERR_OK && (byte == STM32_ACK || byte == STM32_NACK)) {
 		if (port->flags & PORT_SPI_INIT) {
 			byte = STM32_ACK;
@@ -432,7 +434,7 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		fprintf(stderr, "Failed to send init to device while resetting\n");
 		return STM32_ERR_UNKNOWN;
 	}
-	p_err = port->read(port, &byte, 1);
+	p_err = port->read(port, &byte, 1, true);
 	if (p_err == PORT_ERR_OK && byte == STM32_NACK)
 		return STM32_ERR_OK;
 	fprintf(stderr, "Failed to reset device\n");
@@ -468,9 +470,8 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 	/* From AN, only UART bootloader returns 3 bytes */
 
 	// TODO: This fails on SPI (because of dummy read missing?)
-
 	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
-	if (port->read(port, buf, len) != PORT_ERR_OK)
+	if (port->read(port, buf, len, true) != PORT_ERR_OK)
 		return NULL;
 	stm->version = buf[0];
 	stm->option1 = (port->flags & PORT_GVR_ETX) ? buf[1] : 0;
@@ -635,7 +636,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 	if (stm32_send_command(stm, len - 1) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (port->read(port, data, len) != PORT_ERR_OK)
+	if (port->read(port, data, len, true) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	return STM32_ERR_OK;
@@ -1118,7 +1119,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (port->read(port, buf, 5) != PORT_ERR_OK)
+	if (port->read(port, buf, 5, true) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	if (buf[4] != (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]))

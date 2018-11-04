@@ -244,7 +244,7 @@ static port_err_t serial_w32_close(struct port_interface *port)
 }
 
 static port_err_t serial_w32_read(struct port_interface *port, void *buf,
-				  size_t nbyte)
+				  size_t nbyte, bool __unused isDataFrame)
 {
 	serial_t *h;
 	DWORD r;

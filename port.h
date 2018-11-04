@@ -21,6 +21,8 @@
 #ifndef _H_PORT
 #define _H_PORT
 
+#include <stdbool.h>
+
 typedef enum {
 	PORT_ERR_OK = 0,
 	PORT_ERR_NODEV,		/* No such device */
@@ -65,7 +67,7 @@ struct port_interface {
 	port_err_t (*open)(struct port_interface *port, struct port_options *ops);
 	port_err_t (*close)(struct port_interface *port);
 	port_err_t (*flush)(struct port_interface *port);
-	port_err_t (*read)(struct port_interface *port, void *buf, size_t nbyte);
+	port_err_t (*read)(struct port_interface *port, void *buf, size_t nbyte, bool isDataFrame);
 	port_err_t (*write)(struct port_interface *port, void *buf, size_t nbyte);
 	port_err_t (*gpio)(struct port_interface *port, serial_gpio_t n, int level);
 	const char *(*get_cfg_str)(struct port_interface *port);

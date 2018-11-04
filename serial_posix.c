@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <sys/file.h>
 
+#include "compiler.h"
 #include "serial.h"
 #include "port.h"
 
@@ -268,7 +269,7 @@ static port_err_t serial_posix_close(struct port_interface *port)
 }
 
 static port_err_t serial_posix_read(struct port_interface *port, void *buf,
-				     size_t nbyte)
+				     size_t nbyte, bool __unused isDataFrame)
 {
 	serial_t *h;
 	ssize_t r;

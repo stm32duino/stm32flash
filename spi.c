@@ -149,21 +149,32 @@ static port_err_t spi_close(struct port_interface *port) {
 }
 
 static port_err_t spi_read(struct port_interface *port, void *buf,
-         size_t nbyte) {
+         size_t nbyte, bool isDataFrame) {
   struct spi_priv *h;
   int ret;
+  uint8_t dummy = 0x00;
   uint32_t retry = 0;
 
   h = (struct spi_priv *)port->private;
   if (h == NULL)
     return PORT_ERR_UNKNOWN;
 
-  struct spi_ioc_transfer tr = {
+  struct spi_ioc_transfer tr[2] = {
+    {
+      .tx_buf = (long int)(&dummy),
+		  .len = 1
+    },
+    {
       .rx_buf = (long int)(buf),
-		  .len = nbyte,
+		  .len = nbyte
+    }
   };
 
-  ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;
+  if (isDataFrame) {
+    ret = ioctl(h->fd, SPI_IOC_MESSAGE(2), &tr[0]);
+  } else {
+    ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr[1]) ;
+  }
   if(ret < 0) {
     fprintf(stderr, "Error while reading data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
@@ -178,7 +189,7 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
       if (((uint8_t*)buf)[0] != 0x79 && ((uint8_t*)buf)[0] != 0x1F) {
         struct spi_ioc_transfer tr = {
           .rx_buf = (long int)(buf),
-		      .len = nbyte,
+		      .len = nbyte
         };
         ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr);
         if(ret < 0) {
@@ -206,7 +217,7 @@ static port_err_t spi_write(struct port_interface *port, void *buf,
 
   struct spi_ioc_transfer tr = {
     .tx_buf = (long int)(buf),
-	  .len = nbyte,
+	  .len = nbyte
   };
 
   ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr) ;

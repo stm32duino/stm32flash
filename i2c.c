@@ -141,7 +141,7 @@ static port_err_t i2c_close(struct port_interface *port)
 }
 
 static port_err_t i2c_read(struct port_interface *port, void *buf,
-			   size_t nbyte)
+			   size_t nbyte, bool __unused isDataFrame)
 {
 	struct i2c_priv *h;
 	int ret;
