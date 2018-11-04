@@ -65,7 +65,7 @@
 #define STM32_WUNPROT_TIMEOUT	1	/* seconds */
 #define STM32_WPROT_TIMEOUT	1	/* seconds */
 #define STM32_RPROT_TIMEOUT	1	/* seconds */
-#define STM32_STD_TIMEOUT	1	/* seconds */
+#define STM32_STD_TIMEOUT	5	/* seconds */
 
 #define STM32_CMD_GET_LENGTH	17	/* bytes in the reply */
 
@@ -240,14 +240,15 @@ static stm32_err_t stm32_get_ack(const stm32_t *stm)
 
 static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
 					      const uint8_t cmd,
-					      time_t timeout)
+					      time_t timeout,
+                          bool ignoreSOF)
 {
 	struct port_interface *port = stm->port;
 	stm32_err_t s_err;
 	port_err_t p_err;
 	uint8_t buf[3];
 
-	if (port->flags & PORT_CMD_SOF) {
+	if (port->flags & PORT_CMD_SOF && !ignoreSOF) {
 		buf[0] = 0x5A;
 		buf[1] = cmd;
 		buf[2] = cmd ^ 0xFF;
@@ -272,9 +273,9 @@ static stm32_err_t stm32_send_command_timeout(const stm32_t *stm,
 	return STM32_ERR_UNKNOWN;
 }
 
-static stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd)
+static stm32_err_t stm32_send_command(const stm32_t *stm, const uint8_t cmd, bool ignoreSOF)
 {
-	return stm32_send_command_timeout(stm, cmd, STM32_STD_TIMEOUT);
+	return stm32_send_command_timeout(stm, cmd, STM32_STD_TIMEOUT, ignoreSOF);
 }
 
 /* if we have lost sync, send a wrong command and expect a NACK */
@@ -334,7 +335,7 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 	struct port_interface *port = stm->port;
 	port_err_t p_err;
 
-	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+	if (stm32_send_command(stm, cmd, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	if (port->flags & PORT_BYTE) {
 		/* interface is UART-like */
@@ -355,9 +356,8 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 		/* restart with only one byte */
 		if (stm32_resync(stm) != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
-		if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+		if (stm32_send_command(stm, cmd, false) != STM32_ERR_OK)
 			return STM32_ERR_UNKNOWN;
-		// TODO: Maybe must be true?
 		p_err = port->read(port, data, 1, false);
 		if (p_err != PORT_ERR_OK)
 			return STM32_ERR_UNKNOWN;
@@ -368,7 +368,7 @@ static stm32_err_t stm32_guess_len_cmd(const stm32_t *stm, uint8_t cmd,
 		return STM32_ERR_UNKNOWN;
 
 	len = data[0];
-	if (stm32_send_command(stm, cmd) != STM32_ERR_OK)
+	if (stm32_send_command(stm, cmd, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 	p_err = port->read(port, data, len + 2, true);
 	if (p_err != PORT_ERR_OK)
@@ -400,7 +400,6 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 
-	// TODO: Maybe use ACK function here instead with retry?
 	p_err = port->read(port, &byte, 1, false);
 	if (p_err == PORT_ERR_OK && (byte == STM32_ACK || byte == STM32_NACK)) {
 		if (port->flags & PORT_SPI_INIT) {
@@ -462,14 +461,12 @@ stm32_t *stm32_init(struct port_interface *port, const char init)
 			return NULL;
 
 	/* get the version and read protection status  */
-	if (stm32_send_command(stm, STM32_CMD_GVR) != STM32_ERR_OK) {
+	if (stm32_send_command(stm, STM32_CMD_GVR, false) != STM32_ERR_OK) {
 		stm32_close(stm);
 		return NULL;
 	}
 
 	/* From AN, only UART bootloader returns 3 bytes */
-
-	// TODO: This fails on SPI (because of dummy read missing?)
 	len = (port->flags & PORT_GVR_ETX) ? 3 : 1;
 	if (port->read(port, buf, len, true) != PORT_ERR_OK)
 		return NULL;
@@ -619,8 +616,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 		fprintf(stderr, "Error: READ command not implemented in bootloader.\n");
 		return STM32_ERR_NO_CMD;
 	}
-
-	if (stm32_send_command(stm, stm->cmd->rm) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->rm, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
@@ -633,7 +629,7 @@ stm32_err_t stm32_read_memory(const stm32_t *stm, uint32_t address,
 	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (stm32_send_command(stm, len - 1) != STM32_ERR_OK)
+	if (stm32_send_command(stm, len - 1, true) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	if (port->read(port, data, len, true) != PORT_ERR_OK)
@@ -670,7 +666,7 @@ stm32_err_t stm32_write_memory(const stm32_t *stm, uint32_t address,
 	}
 
 	/* send the address and checksum */
-	if (stm32_send_command(stm, stm->cmd->wm) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->wm, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
@@ -719,7 +715,7 @@ stm32_err_t stm32_wunprot_memory(const stm32_t *stm)
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->uw) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->uw, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_WUNPROT_TIMEOUT);
@@ -746,7 +742,7 @@ stm32_err_t stm32_wprot_memory(const stm32_t *stm)
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->wp) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->wp, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_WPROT_TIMEOUT);
@@ -773,7 +769,7 @@ stm32_err_t stm32_runprot_memory(const stm32_t *stm)
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->ur) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->ur, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_MASSERASE_TIMEOUT);
@@ -800,7 +796,7 @@ stm32_err_t stm32_readprot_memory(const stm32_t *stm)
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->rp) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->rp, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	s_err = stm32_get_ack_timeout(stm, STM32_RPROT_TIMEOUT);
@@ -823,14 +819,14 @@ static stm32_err_t stm32_mass_erase(const stm32_t *stm)
 	stm32_err_t s_err;
 	uint8_t buf[3];
 
-	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
+	if (stm32_send_command(stm, stm->cmd->er, false) != STM32_ERR_OK) {
 		fprintf(stderr, "Can't initiate chip mass erase!\n");
 		return STM32_ERR_UNKNOWN;
 	}
 
 	/* regular erase (0x43) */
 	if (stm->cmd->er == STM32_CMD_ER) {
-		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT);
+		s_err = stm32_send_command_timeout(stm, 0xFF, STM32_MASSERASE_TIMEOUT, false);
 		if (s_err != STM32_ERR_OK) {
 			if (port->flags & PORT_STRETCH_W)
 				stm32_warn_stretching("mass erase");
@@ -872,7 +868,7 @@ static stm32_err_t stm32_pages_erase(const stm32_t *stm, uint32_t spage, uint32_
 	/* The erase command reported by the bootloader is either 0x43, 0x44 or 0x45 */
 	/* 0x44 is Extended Erase, a 2 byte based protocol and needs to be handled differently. */
 	/* 0x45 is clock no-stretching version of Extended Erase for I2C port. */
-	if (stm32_send_command(stm, stm->cmd->er) != STM32_ERR_OK) {
+	if (stm32_send_command(stm, stm->cmd->er, false) != STM32_ERR_OK) {
 		fprintf(stderr, "Can't initiate chip mass erase!\n");
 		return STM32_ERR_UNKNOWN;
 	}
@@ -1044,7 +1040,7 @@ stm32_err_t stm32_go(const stm32_t *stm, uint32_t address)
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->go) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->go, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
@@ -1078,6 +1074,7 @@ stm32_err_t stm32_reset_device(const stm32_t *stm)
 stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 			     uint32_t length, uint32_t *crc)
 {
+
 	struct port_interface *port = stm->port;
 	uint8_t buf[5];
 
@@ -1091,7 +1088,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 		return STM32_ERR_NO_CMD;
 	}
 
-	if (stm32_send_command(stm, stm->cmd->crc) != STM32_ERR_OK)
+	if (stm32_send_command(stm, stm->cmd->crc, false) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	buf[0] = address >> 24;
@@ -1110,6 +1107,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	buf[2] = (length >> 8) & 0xFF;
 	buf[3] = length & 0xFF;
 	buf[4] = buf[0] ^ buf[1] ^ buf[2] ^ buf[3];
+
 	if (port->write(port, buf, 5) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
@@ -1119,7 +1117,7 @@ stm32_err_t stm32_crc_memory(const stm32_t *stm, uint32_t address,
 	if (stm32_get_ack(stm) != STM32_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
-	if (port->read(port, buf, 5, true) != PORT_ERR_OK)
+	if (port->read(port, buf, 5, false) != PORT_ERR_OK)
 		return STM32_ERR_UNKNOWN;
 
 	if (buf[4] != (buf[0] ^ buf[1] ^ buf[2] ^ buf[3]))

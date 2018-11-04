@@ -84,7 +84,7 @@ static port_err_t spi_open(struct port_interface *port,
   /* 3. configure the SPI device */
   h->mode = SPI_MODE_0;
   h->bits = 8;
-  h->speed = 500000; // 500 kHz
+  h->speed = 8000000; // (8 MHz)
   h->initialized = false;
 
   ret = ioctl(fd, SPI_IOC_WR_MODE, &h->mode);
@@ -241,7 +241,7 @@ static const char *spi_get_cfg_str(struct port_interface *port) {
 	if (h == NULL)
 		return "INVALID";
 
-	snprintf(str, sizeof(str), "speed %d kHz, spi mode %d, %d bits per word", h->speed / 1000, h->mode, h->bits);
+	snprintf(str, sizeof(str), "speed %d MHz, spi mode %d, %d bits per word", h->speed / 1000000, h->mode, h->bits);
 	return str;
 }
 
