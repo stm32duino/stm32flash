@@ -31,7 +31,6 @@
 
 #define STM32_ACK	0x79
 #define STM32_NACK	0x1F
-#define STM32_ACKOK	0x79
 #define STM32_BUSY	0x76
 #define STM32_BUSY2	0xA5
 
