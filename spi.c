@@ -153,7 +153,6 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
   struct spi_priv *h;
   int ret;
   uint8_t dummy = 0x00;
-  uint32_t retry = 0;
 
   h = (struct spi_priv *)port->private;
   if (h == NULL)
@@ -178,29 +177,6 @@ static port_err_t spi_read(struct port_interface *port, void *buf,
   if(ret < 0) {
     fprintf(stderr, "Error while reading data: %d\n", errno);
     return PORT_ERR_UNKNOWN;
-  }
-
-  // Workaround for SPI init
-  if (!h->initialized) {
-    while(true) {
-      if (retry++ >= 500) {
-          return PORT_ERR_TIMEDOUT;
-      }
-      if (((uint8_t*)buf)[0] != 0x79 && ((uint8_t*)buf)[0] != 0x1F) {
-        struct spi_ioc_transfer tr = {
-          .rx_buf = (long int)(buf),
-		      .len = nbyte
-        };
-        ret = ioctl(h->fd, SPI_IOC_MESSAGE(1), &tr);
-        if(ret < 0) {
-          fprintf(stderr, "Error while reading data: %d\n", errno);
-          return PORT_ERR_UNKNOWN;
-        }
-      } else {
-        h->initialized = true;
-        break;
-      }
-    }
   }
 
   return PORT_ERR_OK;
