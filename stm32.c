@@ -186,7 +186,7 @@ static void stm32_warn_stretching(const char *f)
 	fprintf(stderr, "\tCheck \"I2C.txt\" in stm32flash source code.\n");
 }
 
-static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
+static stm32_err_t stm32_get_ack_timeout_general(const stm32_t *stm, time_t timeout)
 {
 	struct port_interface *port = stm->port;
 	uint8_t byte;
@@ -195,6 +195,41 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 
 	if (!(port->flags & PORT_RETRY))
 		timeout = 0;
+
+	if (timeout)
+		time(&t0);
+
+	do {
+		p_err = port->read(port, &byte, 1, false);
+		if (p_err == PORT_ERR_TIMEDOUT && timeout) {
+			time(&t1);
+			if (t1 < t0 + timeout)
+				continue;
+		}
+
+		if (p_err != PORT_ERR_OK) {
+			fprintf(stderr, "Failed to read ACK byte\n");
+			return STM32_ERR_UNKNOWN;
+		}
+
+		if (byte == STM32_ACK)
+			return STM32_ERR_OK;
+		if (byte == STM32_NACK)
+			return STM32_ERR_NACK;
+		if (byte != STM32_BUSY) {
+			fprintf(stderr, "Got byte 0x%02x instead of ACK\n",
+				byte);
+			return STM32_ERR_UNKNOWN;
+		}
+	} while (1);
+}
+
+static stm32_err_t stm32_get_ack_timeout_spi(const stm32_t *stm, time_t timeout)
+{
+	struct port_interface *port = stm->port;
+	uint8_t byte;
+	port_err_t p_err;
+	time_t t0, t1;
 
 	if (timeout)
 		time(&t0);
@@ -215,22 +250,28 @@ static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout)
 		}
 
 		if (byte == STM32_ACK || byte == STM32_NACK) {
-			if (port->flags & PORT_SPI_INIT) {
-				int8_t b = STM32_ACK;
-				p_err = port->write(port, &b, 1);
-		    	if (p_err != PORT_ERR_OK) {
-			    	fprintf(stderr, "Failed to reply ACK byte\n");
-			    	return STM32_ERR_UNKNOWN;
-		    	}
-			}
+			int8_t b = STM32_ACK;
+			p_err = port->write(port, &b, 1);
+	    	if (p_err != PORT_ERR_OK) {
+		    	fprintf(stderr, "Failed to reply ACK byte\n");
+		    	return STM32_ERR_UNKNOWN;
+	    	}
 			return (byte == STM32_ACK) ? STM32_ERR_OK : STM32_ERR_NACK;
 		}
-		// TODO chose the right BUSY for USART/I2C and SPI
-		if ((byte != STM32_BUSY) && (byte != STM32_BUSY2)) {
+		if (byte != STM32_BUSY2) {
 			fprintf(stderr, "Got byte 0x%02x instead of ACK\n", byte);
 			return STM32_ERR_UNKNOWN;
 		}
 	} while (1);
+}
+
+static stm32_err_t stm32_get_ack_timeout(const stm32_t *stm, time_t timeout) {
+	struct port_interface *port = stm->port;
+	if (port->flags & PORT_SPI_INIT) {
+		return stm32_get_ack_timeout_spi(stm, timeout);
+	} else {
+		return stm32_get_ack_timeout_general(stm, timeout);
+	}
 }
 
 static stm32_err_t stm32_get_ack(const stm32_t *stm)
@@ -390,30 +431,31 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 {
 	struct port_interface *port = stm->port;
 	port_err_t p_err;
-	stm32_err_t s_err;
 	uint8_t byte, cmd = (port->flags & PORT_SPI_INIT) ?
 		STM32_CMD_SPI_INIT : STM32_CMD_UART_INIT;
 
 	p_err = port->write(port, &cmd, 1);
-	if (p_err != PORT_ERR_OK) {
-		fprintf(stderr, "Failed to send init to device\n");
-		return STM32_ERR_UNKNOWN;
-	}
+	if (port->flags & PORT_SPI_INIT) {
+		return stm32_get_ack(stm);
+	} else {
+		if (p_err != PORT_ERR_OK) {
+			fprintf(stderr, "Failed to send init to device\n");
+			return STM32_ERR_UNKNOWN;
+		}
 
-	p_err = port->read(port, &byte, 1, false);
-	if (p_err == PORT_ERR_OK) {
-		s_err = stm32_get_ack(stm);
-		if (s_err == STM32_ACK) {
+		p_err = port->read(port, &byte, 1, false);
+		if (p_err == PORT_ERR_OK && byte == STM32_ACK)
 			return STM32_ERR_OK;
-		} else {
+		if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
 			/* We could get error later, but let's continue, for now. */
-			fprintf(stderr, "Warning: The interface was not closed properly\n");
+			fprintf(stderr,
+				"Warning: the interface was not closed properly.\n");
 			return STM32_ERR_OK;
 		}
-	}
-	if (p_err != PORT_ERR_TIMEDOUT) {
-		fprintf(stderr, "Failed to init device\n");
-		return STM32_ERR_UNKNOWN;
+		if (p_err != PORT_ERR_TIMEDOUT) {
+			fprintf(stderr, "Failed to init device.\n");
+			return STM32_ERR_UNKNOWN;
+		}
 	}
 
 	/*

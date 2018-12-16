@@ -215,19 +215,19 @@ static int gpio_sequence(struct port_interface *port, const char *seq, size_t le
 			l -= 3;
 		} else if (*s && (l > 0)) {
 			delimiter = 1;
-			/* The ',' delimiter adds a 100 ms delay between signal toggles.
-			 * i.e -rts,dtr will reset rts, wait 100 ms, set dtr.
+			/* The ',' delimiter adds a 500 ms delay between signal toggles.
+			 * i.e -rts,dtr will reset rts, wait 500 ms, set dtr.
 			 *
 			 * The '&' delimiter adds no delay between signal toggles.
 			 * i.e -rts&dtr will reset rts and immediately set dtr.
 			 *
 			 * Example: -rts&dtr,,,rts,-dtr will reset rts and set dtr
-			 * without delay, then wait 300 ms, set rts, wait 100 ms, reset dtr.
+			 * without delay, then wait 1500 ms, set rts, wait 500 ms, reset dtr.
 			 */
 			if (*s == ',') {
 				s++;
 				l--;
-				sleep_time = 100000;
+				sleep_time = 500000;
 			} else if (*s == '&') {
 				s++;
 				l--;
