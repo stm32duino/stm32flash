@@ -1,3 +1,5 @@
+# Since release [1.6.0](https://github.com/stm32duino/Arduino_Core_STM32/releases/tag/1.6.0) of the STM32 core, STM32CubeProgrammer is used to flash and replaced this tool.
+
 # stm32flash
 Open source flash program for STM32 using the ST serial bootloader
 
